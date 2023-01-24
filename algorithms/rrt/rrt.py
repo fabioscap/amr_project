@@ -116,6 +116,8 @@ class RRT:
             return True
 
         for iter in range(max_iters):
+            if iter%100 == 0:
+                print(iter)
             q_rand = self.sample_state()
 
             q_near = self.nearest_neighbor(q_rand)

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from algorithms import RRT
-from models import Pendulum
+from models import Pendulum, Unicycle
 
 from rtree import index
 
@@ -88,23 +88,46 @@ def test_rrt():
 
     plt.show()
 
+def test_rrt_pendulum():
+    p = Pendulum(m_l=0.5 ,dt=0.1)
+    q0 = np.zeros(2)
+    q_goal = np.array([np.pi, 0])
 
-p = Pendulum(m_l=0.5 ,dt=0.1)
-q0 = np.zeros(2)
-q_goal = np.array([np.pi, 0])
+    plt.scatter(q0[0], q0[1], c="red")
+    plt.scatter(q_goal[0], q_goal[1], marker="x", c="red")
 
+    pi = np.pi
+    state_bounds = np.zeros((2,2))
+
+    state_bounds[0] = np.array([-3*pi/2,3*pi/2])
+    state_bounds[1] = np.array([-10,10])
+
+
+    rrt = RRT(q0, q_goal,  0.05, state_bounds, p.extend_to)
+
+    rrt.plan(max_iters=7000, plt=plt)
+
+    plt.show()
+
+
+u = Unicycle()
+
+q0 = u.initial_state
+q_goal = np.array([0.5,0.5,0])
+
+state_bounds = np.zeros((6,2))
+
+state_bounds[0] = np.array([-5,5])
+state_bounds[1] = np.array([-5,5])
+state_bounds[2] = np.array([-np.pi, np.pi])
+state_bounds[3] = np.array([-5,5])
+state_bounds[4] = np.array([-5,5])
+state_bounds[5] = np.array([-5,5])
+
+rrt = RRT(q0, q_goal, 0.05, state_bounds, u.extend_to)
 plt.scatter(q0[0], q0[1], c="red")
 plt.scatter(q_goal[0], q_goal[1], marker="x", c="red")
 
-pi = np.pi
-state_bounds = np.zeros((2,2))
-
-state_bounds[0] = np.array([-3*pi/2,3*pi/2])
-state_bounds[1] = np.array([-10,10])
-
-
-rrt = RRT(q0, q_goal,  0.05, state_bounds, p.extend_to)
-
-rrt.plan(max_iters=7000, plt=plt)
+rrt.plan(max_iters=3000, plt=plt)
 
 plt.show()
