@@ -89,9 +89,9 @@ def test_rrt():
     plt.show()
 
 
-p = Pendulum(dt=0.1)
+p = Pendulum(m_l=0.5 ,dt=0.1)
 q0 = np.zeros(2)
-q_goal = np.array([-0.26, -1.26])
+q_goal = np.array([np.pi, 0])
 
 plt.scatter(q0[0], q0[1], c="red")
 plt.scatter(q_goal[0], q_goal[1], marker="x", c="red")
@@ -99,12 +99,12 @@ plt.scatter(q_goal[0], q_goal[1], marker="x", c="red")
 pi = np.pi
 state_bounds = np.zeros((2,2))
 
-state_bounds[0] = np.array([-pi,pi])
+state_bounds[0] = np.array([-3*pi/2,3*pi/2])
 state_bounds[1] = np.array([-10,10])
 
 
 rrt = RRT(q0, q_goal,  0.05, state_bounds, p.extend_to)
 
-rrt.plan(max_iters=1000, plt=plt)
+rrt.plan(max_iters=7000, plt=plt)
 
 plt.show()
