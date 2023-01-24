@@ -55,11 +55,46 @@ def test_rtree():
 
     plt.show()
 
+def test_rrt():
+    p = Pendulum(dt=0.1)
+    q0 = np.zeros(2)
+
+    plt.scatter(q0[0], q0[1])
+
+    pi = np.pi
+    state_bounds = np.zeros((2,2))
+
+    state_bounds[0] = np.array([-pi,pi])
+    state_bounds[1] = np.array([-10,10])
+
+
+    rrt = RRT(q0, q0, None, state_bounds, p.extend_to)
+
+    for i in range(100):
+        q_rand = rrt.sample_state()
+
+        q_near = rrt.nearest_neighbor(q_rand)
+
+        node_next = rrt.expand(q_near, q_rand)
+
+        q_next = node_next.state
+        q_parent = node_next.parent.state
+        plt.scatter(q_next[0], q_next[1])
+        plt.plot([q_parent[0], q_next[0]],[q_parent[1], q_next[1]])
+
+
+        # plt.draw()
+        # plt.pause(0.5)
+
+    plt.show()
+
 
 p = Pendulum(dt=0.1)
 q0 = np.zeros(2)
+q_goal = np.array([-0.26, -1.26])
 
-plt.scatter(q0[0], q0[1])
+plt.scatter(q0[0], q0[1], c="red")
+plt.scatter(q_goal[0], q_goal[1], marker="x", c="red")
 
 pi = np.pi
 state_bounds = np.zeros((2,2))
@@ -68,23 +103,8 @@ state_bounds[0] = np.array([-pi,pi])
 state_bounds[1] = np.array([-10,10])
 
 
-rrt = RRT(q0, q0, None, state_bounds, p.extend_to)
+rrt = RRT(q0, q_goal,  0.05, state_bounds, p.extend_to)
 
-q_old = q0
-for i in range(100):
-    q_rand = rrt.sample_state()
-
-    q_near = rrt.nearest_neighbor(q_rand)
-
-    node_next = rrt.expand(q_near, q_rand)
-
-    q_next = node_next.state
-    q_parent = node_next.parent.state
-    plt.scatter(q_next[0], q_next[1])
-    plt.plot([q_parent[0], q_next[0]],[q_parent[1], q_next[1]])
-
-
-    # plt.draw()
-    # plt.pause(0.5)
+rrt.plan(max_iters=1000, plt=plt)
 
 plt.show()

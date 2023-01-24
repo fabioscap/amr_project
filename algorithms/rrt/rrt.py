@@ -69,6 +69,8 @@ class RRT:
 
         self.state_tree.insert(self.initial_state_id, self.initial_state)
 
+        self.min_distance = np.inf
+
     # sample q_rand uniformly
     def sample_state(self):
         rnd = np.random.rand(self.dim)
@@ -106,5 +108,44 @@ class RRT:
 
         return node_next
 
+    def plan(self, max_iters, plt=None):
+
+        goal = self.goal_check(self.initial_state, self.goal_state)
+        if goal:
+            print("goal")
+            return True
+
+        for iter in range(max_iters):
+            q_rand = self.sample_state()
+
+            q_near = self.nearest_neighbor(q_rand)
+
+            node_next = self.expand(q_near, q_rand)
+
+            q_next = node_next.state
+            
+            if plt != None:
+                q_parent = node_next.parent.state
+                plt.scatter(q_next[0], q_next[1], c="blue")
+                plt.plot([q_parent[0], q_next[0]],[q_parent[1], q_next[1]], c="blue")
 
 
+            goal = self.goal_check(q_next, self.goal_state)
+
+            if goal:
+                print("goal")
+                print(self.min_distance)
+                return True
+        print("no goal")
+        print(self.min_distance)
+        return False
+
+    def goal_check(self, q, q_goal):
+        import utils
+        delta = q-q_goal
+        delta[0] = utils.normalize(delta[0])
+        
+        norm = np.linalg.norm(delta)
+        if norm < self.min_distance:
+            self.min_distance = norm
+        return norm < self.eps
