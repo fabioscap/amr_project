@@ -1,0 +1,22 @@
+Now:
+- embed state bounds into model class
+- put goal check in model class ( deal with angles etc...)
+- how to expand q_near? for now we try all u from motion primitives and see which gets us
+  closer according to euclidean distance (other distances?)
+- how to choose motion primitives?
+
+- RG rrt
+- r3t
+- rewiring
+
+
+After meeting:
+- 1D/2D hopper model
+- (other models?)
+
+Optional:
+- create abstract classes for algorithm and model
+- deal with pendulum angles in a consistent way
+- fix plots / do plots
+- bi directional tree? (need to step backward)
+- develop better than uniform sampling (goal oriented, ...)

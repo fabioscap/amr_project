@@ -46,6 +46,9 @@ class Node:
     
     def __eq__(self, __o: object) -> bool:
         return self.__hash__() == __o.__hash__()
+    
+    def __repr__(self) -> str:
+        return f"[{self.state}, {self.u}]"
 
 class RRT:
     
@@ -137,16 +140,30 @@ class RRT:
             if goal:
                 print("goal")
                 print(self.min_distance)
-                return True
+                return True, node_next
         print("no goal")
         print(self.min_distance)
-        return False
+        return False, None
+    
+    def get_plan(self, node: Node, plt=None):
+        plan = [node]
+        q = node.state
+        while node.parent != None:
+            plan = [node.parent] + plan
+
+            node = node.parent
+
+            if plt != None:
+                q_next = node.state
+
+                plt.plot([q[0],q_next[0]],[q[1],q_next[1]],c="red")
+                q = q_next
+
+        return plan
 
     def goal_check(self, q, q_goal):
-        import utils
         delta = q-q_goal
-        delta[0] = utils.normalize(delta[0])
-        
+
         norm = np.linalg.norm(delta)
         if norm < self.min_distance:
             self.min_distance = norm

@@ -44,7 +44,6 @@ class Pendulum:
         q_next = None
         u = None
 
-        print(f"Expanding: q_near={q_near}, q_rand={q_rand}")
         for control in self.motion_primitives:
             q_cand = self.step(q_near, control)
             delta = q_rand-q_cand
