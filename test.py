@@ -87,7 +87,7 @@ def test_rrt_pendulum():
 def test_rgrrt_pendulum():
     start = time.time()
     # np.random.seed(1834913)
-    p = Pendulum(m_l=0.5 ,dt=0.05)
+    p = Pendulum(m_l=0.5 ,dt=0.01)
 
     q0 = np.zeros(2)
     q_goal = np.array([np.pi, 0])
@@ -101,7 +101,7 @@ def test_rgrrt_pendulum():
     state_bounds[0] = np.array([-3*pi/2,3*pi/2])
     state_bounds[1] = np.array([-10,10])
 
-    planner = RGRRT(q0, q_goal,  0.2, state_bounds, p.get_reachable_points)
+    planner = RGRRT(q0, q_goal,  0.1, state_bounds, p.get_reachable_points)
 
     success, goal_node, nodes = planner.plan(max_nodes=80000, plt=None)
     elapsed = time.time()-start
