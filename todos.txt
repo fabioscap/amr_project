@@ -1,11 +1,11 @@
 Now:
 - embed state bounds into model class
-- put goal check in model class ( deal with angles etc...)
+- put goal check in model class ( deal with angles etc..., multiple goals)
 - how to expand q_near? for now we try all u from motion primitives and see which gets us
-  closer according to euclidean distance (other distances?)
+  closer according to euclidean distance (other distances?) [RGRRT deals with this]
 - how to choose motion primitives?
-
-- RG rrt
+- model dt / planning dt
+- RG rrt [DONE]
 - r3t
 - rewiring
 
@@ -20,3 +20,4 @@ Optional:
 - fix plots / do plots
 - bi directional tree? (need to step backward)
 - develop better than uniform sampling (goal oriented, ...)
+- do plots after planning (faster)

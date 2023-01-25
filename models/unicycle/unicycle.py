@@ -66,3 +66,15 @@ class Unicycle:
                 primitives.append(primitive)
 
         return primitives
+
+    def get_reachable_points(self, state):
+
+        states = []
+        controls = []
+
+        for control in self.motion_primitives:
+            cand = self.step(state, control)
+            states.append(cand)
+            controls.append(control)
+
+        return states, controls

@@ -1,76 +1,39 @@
-from rtree import index
+from algorithms.rrt.rrt import StateTree, Node
 import numpy as np
 
-class StateTree:
-    def __init__(self, 
-                 dim, # dimension of the state
-                 ):
-        self.dim = dim
-
-        # set properties for nearest neighbor
-        self.state_tree_p = index.Property()
-        self.state_tree_p.dimension = dim
-        
-        self.state_idx = index.Index(properties=self.state_tree_p)
-
-        # map
-        self.state_id_to_state = {}
-
-    def insert(self, state_id, state):
-        self.state_idx.insert(state_id, state)
-        self.state_id_to_state[state_id] = state
-
-    def nearest(self, state):
-        # https://github.com/wualbert/r3t/blob/master/common/basic_rrt.py
-        # they stack the state for some reason
-
-        nearest_id = list(self.state_idx.nearest(state, num_results=1))[0]
-
-        nearest = self.state_id_to_state[nearest_id]
-
-        return nearest_id, nearest
-
-class Node:
-    def __init__(self, state, u=None, parent=None, cost=0.):
-        self.state = state
-        self.u = u
-        self.parent = parent
-        self.cost = cost
-        self.children = set()
-
-    def add_child(self, child):
-        self.children.add(child)
-
-    def __hash__(self) -> int:
-        return hash(str(self.state))
-    
-    def __eq__(self, __o: object) -> bool:
-        return self.__hash__() == __o.__hash__()
-    
-    def __repr__(self) -> str:
-        return f"[{self.state}, {self.u}]"
-
-class RRT:
-    
-    def __init__(self, initial_state, goal_state, eps, state_bounds, extend_func):
+class RGRRT:
+    def __init__(self, initial_state, goal_state, eps, state_bounds, get_reachable_func):
         self.dim = initial_state.shape[0]
         self.initial_state = initial_state
         self.goal_state = goal_state
         self.eps = eps
         self.state_bounds = state_bounds # shape(dim,2)
 
-        self.initial_node = Node(initial_state)
-
         self.state_tree = StateTree(self.dim)
 
-        self.extend_func = extend_func
+        # store the reachable states for every node here
+        self.reachable_tree = StateTree(self.dim)
 
-        # map
-        self.state_to_node = {}
+        self.get_reachable_func = get_reachable_func
+
+        # maps
+        self.state_to_node = {} # from state_id to node
+        self.reachable_to_node = {} # form reachable_id to (node, u)
+
+        # initialization for the first state
+        self.initial_node = Node(initial_state)
         self.initial_state_id = hash(str(self.initial_state))
         self.state_to_node[self.initial_state_id] = self.initial_node
 
         self.state_tree.insert(self.initial_state_id, self.initial_state)
+        
+        initial_reachable, controls = self.get_reachable_func(self.initial_state)
+        for reachable, control in zip(initial_reachable, controls):
+            reachable_id = hash(str(reachable))
+            self.reachable_to_node[reachable_id] = (self.initial_node, control)
+            self.reachable_tree.insert(reachable_id, reachable)
+        ###
+
 
         self.min_distance = np.inf
 
@@ -88,47 +51,65 @@ class RRT:
     
     # find q_near
     def nearest_neighbor(self, q_rand):
-        id_near, q_near = self.state_tree.nearest(q_rand)
+        id_near, r_near = self.reachable_tree.nearest(q_rand)
 
-        return q_near
+        node_near, u = self.reachable_to_node[id_near]
+
+        q_near = node_near.state
+
+        if np.dot(r_near-q_rand,r_near-q_rand) < np.dot(q_near-q_rand,q_near-q_rand):
+            # r_near will be a new node with parent node_near
+            return r_near, node_near, u
+        else:
+            # discard the sampled point
+            return None, None, None
+
     
-    def expand(self, q_near, q_rand):
-        q_next, u = self.extend_func(q_near, q_rand)
-
-        node_near = self.state_to_node[hash(str(q_near))]
+    def expand(self, q_next, node_near, u):
 
         # add node to tree
         node_next = Node(q_next, u, node_near, cost=np.linalg.norm(u))
 
+        # add child ot parent
         node_near.add_child(node_next)
 
         # add state to database
         state_id = hash(str(q_next))
         self.state_tree.insert(state_id, q_next)
 
-        # add link to node
+        # update maps
         self.state_to_node[state_id] = node_next
+
+        reachable, controls = self.get_reachable_func(q_next)
+        for reachable, control in zip(reachable, controls):
+            reachable_id = hash(str(reachable))
+            self.reachable_to_node[reachable_id] = (node_next, control)
+            self.reachable_tree.insert(reachable_id, reachable)
 
         return node_next
 
-    def plan(self, max_iters, plt=None):
+    def plan(self, max_nodes, plt=None):
 
         goal = self.goal_check(self.initial_state, self.goal_state)
         if goal:
             print("goal")
             return True
 
-        for iter in range(max_iters):
-            if iter%100 == 0:
-                print(iter)
+        for node in range(max_nodes):
+            if node%1000 == 0:
+                print(node)
+
             q_rand = self.sample_state()
 
-            q_near = self.nearest_neighbor(q_rand)
+            r_near, node_near, u = self.nearest_neighbor(q_rand)
+            if r_near is None:
+                node -= 1 # iteration does not count
+                          # because it did not expand tree
+                continue
 
-            node_next = self.expand(q_near, q_rand)
+            node_next = self.expand(r_near, node_near, u)
 
             q_next = node_next.state
-            
             if plt != None:
                 q_parent = node_next.parent.state
                 plt.scatter(q_next[0], q_next[1], c="blue")
@@ -140,10 +121,10 @@ class RRT:
             if goal:
                 print("goal")
                 print(self.min_distance)
-                return True, node_next
+                return True, node_next, node
         print("no goal")
         print(self.min_distance)
-        return False, None
+        return False, None, node
     
     def get_plan(self, node: Node, plt=None):
         plan = [node]

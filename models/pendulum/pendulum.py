@@ -3,7 +3,7 @@ from utils import normalize
 
 class Pendulum:
     
-    motion_primitives = {1.0, 0.75, 0.5, 0.25, 0.0, -0.25, -0.5, -0.75, -1.0}
+    motion_primitives = {1.0, 0.0,  -1.0}
     # motion_primitives = {1.0}
 
     def __init__(self, m=1, m_l=0, l=1, g=9.81, b=0.2, initial_state = np.array([0,0]), input_limits=None, dt=0.001):
@@ -57,4 +57,17 @@ class Pendulum:
                 min_d = d
 
         return q_next, u
+    
+    def get_reachable_points(self, state):
+
+        states = []
+        controls = []
+
+        for control in self.motion_primitives:
+            cand = self.step(state, control)
+            states.append(cand)
+            controls.append(control)
+
+        return states, controls
+        
 
