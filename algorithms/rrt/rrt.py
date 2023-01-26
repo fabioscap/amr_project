@@ -34,15 +34,21 @@ class Node:
     def __init__(self, state, u=None, parent=None, cost=0.):
         self.state = state
         self.u = u
+        
         self.parent = parent
+
         self.cost = cost
         self.children = set()
 
     def add_child(self, child):
-        self.children.add(child)
+        if child in self.children:
+            return False
+        else:
+            self.children.add(child)
+            return True
 
     def __hash__(self) -> int:
-        return hash(str(self.state))
+        return hash(str(self.state)) + hash(str(self.u))
     
     def __eq__(self, __o: object) -> bool:
         return self.__hash__() == __o.__hash__()
@@ -100,16 +106,18 @@ class RRT:
         # add node to tree
         node_next = Node(q_next, u, node_near, cost=np.linalg.norm(u))
 
-        node_near.add_child(node_next)
+        new_child = node_near.add_child(node_next)
+        if new_child:
+            # add state to database
+            state_id = hash(str(q_next))
+            self.state_tree.insert(state_id, q_next)
 
-        # add state to database
-        state_id = hash(str(q_next))
-        self.state_tree.insert(state_id, q_next)
+            # add link to node
+            self.state_to_node[state_id] = node_next
 
-        # add link to node
-        self.state_to_node[state_id] = node_next
-
-        return node_next
+            return node_next
+        else:
+            return None
 
     def plan(self, max_iters, plt=None):
 

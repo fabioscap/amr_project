@@ -71,22 +71,24 @@ class RGRRT:
         node_next = Node(q_next, u, node_near, cost=np.linalg.norm(u))
 
         # add child ot parent
-        node_near.add_child(node_next)
+        new_child = node_near.add_child(node_next)
+        if new_child:
+            # add state to database
+            state_id = hash(str(q_next))
+            self.state_tree.insert(state_id, q_next)
 
-        # add state to database
-        state_id = hash(str(q_next))
-        self.state_tree.insert(state_id, q_next)
+            # update maps
+            self.state_to_node[state_id] = node_next
 
-        # update maps
-        self.state_to_node[state_id] = node_next
+            reachable, controls = self.get_reachable_func(q_next)
+            for reachable, control in zip(reachable, controls):
+                reachable_id = hash(str(reachable))
+                self.reachable_to_node[reachable_id] = (node_next, control)
+                self.reachable_tree.insert(reachable_id, reachable)
 
-        reachable, controls = self.get_reachable_func(q_next)
-        for reachable, control in zip(reachable, controls):
-            reachable_id = hash(str(reachable))
-            self.reachable_to_node[reachable_id] = (node_next, control)
-            self.reachable_tree.insert(reachable_id, reachable)
-
-        return node_next
+            return node_next
+        else: 
+            return None
 
     def plan(self, max_nodes, plt=None):
 
@@ -108,7 +110,9 @@ class RGRRT:
                 continue
 
             node_next = self.expand(r_near, node_near, u)
-
+            if node_next is None:
+                node -= 1
+                continue
             q_next = node_next.state
             if plt != None:
                 q_parent = node_next.parent.state
