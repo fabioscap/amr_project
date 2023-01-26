@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import utils
 
 from algorithms import RRT, RGRRT
 from models import Pendulum, Unicycle
@@ -77,6 +78,8 @@ def test_rrt_pendulum():
 
     success, goal_node = rrt.plan(max_iters=20000, plt=None)
     elapsed = time.time()-start
+    utils.plot(rrt.initial_node, plt=plt)
+
     if success:
         plan = rrt.get_plan(goal_node, plt=plt)
         plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
@@ -87,7 +90,7 @@ def test_rrt_pendulum():
 def test_rgrrt_pendulum():
     start = time.time()
     # np.random.seed(1834913)
-    p = Pendulum(m_l=0.5 ,dt=0.01)
+    p = Pendulum(m_l=0.5 ,dt=0.1)
 
     q0 = np.zeros(2)
     q_goal = np.array([np.pi, 0])
@@ -101,46 +104,24 @@ def test_rgrrt_pendulum():
     state_bounds[0] = np.array([-3*pi/2,3*pi/2])
     state_bounds[1] = np.array([-10,10])
 
-    planner = RGRRT(q0, q_goal,  0.1, state_bounds, p.get_reachable_points)
+    planner = RGRRT(q0, q_goal,  0.05, state_bounds, p.get_reachable_points)
 
     success, goal_node, nodes = planner.plan(max_nodes=80000, plt=None)
+    
     elapsed = time.time()-start
+    utils.plot(planner.initial_node, plt=plt)
+
     if success:
         plan = planner.get_plan(goal_node, plt=plt)
         plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
-        #print(plan)
+        print(plan)
+        pass
+
+    
+
     print(f"{elapsed} seconds")
     print(f"expanded {nodes} nodes")
     plt.show()
-
-def test_rgrrt_car():
-    start = time.time()
-    # np.random.seed(1834913)
-    p = Pendulum(m_l=0.5 ,dt=0.1)
-
-    q0 = np.zeros(2)
-    q_goal = np.array([np.pi/2, -0.2])
-
-    plt.scatter(q0[0], q0[1], c="red")
-    plt.scatter(q_goal[0], q_goal[1], marker="x", c="red")
-
-    pi = np.pi
-    state_bounds = np.zeros((2,2))
-
-    state_bounds[0] = np.array([-3*pi/2,3*pi/2])
-    state_bounds[1] = np.array([-10,10])
-
-    planner = RGRRT(q0, q_goal,  0.2, state_bounds, p.get_reachable_points)
-
-    success, goal_node, nodes = planner.plan(max_nodes=20000, plt=None)
-    elapsed = time.time()-start
-    if success:
-        plan = planner.get_plan(goal_node, plt=plt)
-        plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
-        #print(plan)
-    print(f"{elapsed} seconds")
-    print(f"expanded {nodes} nodes")
-    plt.show()    
 
 test_rgrrt_pendulum()
 # test_rrt_pendulum()
