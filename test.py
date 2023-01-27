@@ -123,5 +123,47 @@ def test_rgrrt_pendulum():
     print(f"expanded {nodes} nodes")
     plt.show()
 
-test_rgrrt_pendulum()
+def test_point_to_polytope():
+    import warnings
+    warnings.filterwarnings("ignore")
+    import pypolycontain as pp
+
+    n_dim = 4
+    
+    query = np.ones(n_dim)*4
+
+    AH = pp.to_AH_polytope(pp.unitbox(n_dim).H_polytope)
+
+    
+    utils.distance_point_polytope(query, AH)
+
+
+def test_AH_to_bbox():
+    import warnings
+    warnings.filterwarnings("ignore")
+    import pypolycontain as pp
+
+    # rhombus
+    H = np.zeros((4,2))
+    H[0,0] = 3/4
+    H[0,1] = -1
+    H[1,0] = -3/4
+    H[1,1] = 1
+    H[2,0] = 3/4
+    H[2,1] = 1
+    H[3,0] = -3/4
+    H[3,1] = -1
+
+    h = np.ones(4)*3
+    
+    P = pp.H_polytope(H,h)
+    AH = pp.to_AH_polytope(P)
+
+    bbox = utils.AABB.from_AH(AH)
+
+
+#test_rgrrt_pendulum()
 # test_rrt_pendulum()
+
+#test_point_to_polytope()
+# test_AH_to_bbox()

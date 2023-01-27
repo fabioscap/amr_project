@@ -1,3 +1,7 @@
 numpy
 matplotlib
 rtree
+scipy
+pypolycontain
+osqp
+qpsolvers

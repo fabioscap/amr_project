@@ -1,5 +1,6 @@
 import numpy as np
-from utils import normalize, AHPolytope, unitbox
+from utils import normalize
+import pypolycontain as pp
 
 class Pendulum:
     
@@ -94,19 +95,22 @@ class Pendulum:
         B[0,0] = 0
         B[1,0] = (1/self.I)
 
-        c = self.f(x,u) - A@x - B*u
+        c = np.ndarray.flatten(self.f(x,u)) - np.ndarray.flatten(A@x) - np.ndarray.flatten(B*u)
 
         return A, B, c
     
-    def get_reachable_AH(self, x):
-        A, B, c = self.linearize_at(x, self.u_bar)
+    def get_reachable_AH(self, state):
+        A, B, c = self.linearize_at(state, self.u_bar)
+        A = A*self.dt + np.eye(A.shape[0])
+        B *= self.dt
+        c *= self.dt
+        x = np.ndarray.flatten(A@state) + np.ndarray.flatten(B*self.u_bar) + c
 
-        x_next = (A*self.dt + np.eye(A.shape[0]))@x + B*self.dt*self.u_bar + c
-
-        G = B*self.dt*(self.u_diff)
-
-        RDT = AHPolytope(t=x_next.reshape(-1,1),T=G,P=unitbox(N=1))
-
-        # TODO RCT convex hull
-
+        assert(len(x)==len(state))
+        G = np.atleast_2d(B*self.u_diff)
+        """
+        if use_convex_hull:
+            return convex_hull_of_point_and_polytope(state.reshape(x.shape),zonotope(x,G))
+        """
+        return pp.to_AH_polytope(pp.zonotope(x,G))
 
