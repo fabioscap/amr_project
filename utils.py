@@ -1,5 +1,5 @@
 import numpy as np
-from algorithms.rrt.rrt import Node
+
 
 import pypolycontain as pp
 import qpsolvers
@@ -7,7 +7,7 @@ import qpsolvers
 def normalize(angle):
     return np.arctan2(np.sin(angle), np.cos(angle))
 
-def plot(root_node: Node, plt, th=4):
+def plot(root_node, plt, th=100):
     state = root_node.state
 
     # plot the parent
@@ -69,27 +69,29 @@ class AABB: # axis aligned bounding box
     @staticmethod
     def from_AH(AH:pp.AH_polytope):
         
-        dim = AH.n
+        n_dim = AH.n
 
         H = AH.P.H
         h = AH.P.h
 
+        m_dim = AH.P.H.shape[1]
+
         G = AH.T
         g = AH.t
 
-        U = np.zeros(dim)
-        L = np.zeros(dim)
+        U = np.zeros(n_dim)
+        L = np.zeros(n_dim)
 
-        for d in range(dim):
+        for d in range(n_dim):
             # Gd: d-esima riga di G
             # dot(Gd,x) == qTx
 
             Gd = G[d,:]
 
-            x = qpsolvers.solve_qp(P=np.zeros((dim,dim)), q =  Gd, G=H, h=h, solver="osqp")
+            x = qpsolvers.solve_qp(P=np.zeros((m_dim,m_dim)), q =  Gd, G=H, h=h, solver="osqp")
             L[d] = np.dot(Gd,x) + g[d] 
 
-            x = qpsolvers.solve_qp(P=np.zeros((dim,dim)), q = -Gd, G=H, h=h, solver="osqp")
+            x = qpsolvers.solve_qp(P=np.zeros((m_dim,m_dim)), q = -Gd, G=H, h=h, solver="osqp")
             U[d] = np.dot(Gd,x) + g[d] 
         
         return AABB(L,U)

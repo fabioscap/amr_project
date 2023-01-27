@@ -4,7 +4,7 @@ import pypolycontain as pp
 
 class Pendulum:
     
-    motion_primitives = {1, 0.75, 0.5, 0.0, -0.5, -0.75,  -1}
+    motion_primitives = {1,0.0,-1}
     # motion_primitives = {1.0}
 
     x_dim = 2
@@ -12,10 +12,11 @@ class Pendulum:
 
     def __init__(self, m=1, m_l=0, l=0.5, g=9.81, b=0.1, 
                  initial_state = np.array([0,0]), 
-                 input_limits=np.array([-1,1]), 
                  dt=0.001):
         
         self.dt = dt
+
+        self.tau = 2*dt # to do solve input
 
         self.m = m
         self.m_l = m_l
@@ -23,7 +24,7 @@ class Pendulum:
         self.g = g
         self.b = b
         self.initial_state = initial_state
-        self.input_limits = input_limits
+        self.input_limits = np.array([min(self.motion_primitives), max(self.motion_primitives)])
         
         self.u_bar =  ( self.input_limits[0] + self.input_limits[1] )/2
         self.u_diff = ( self.input_limits[1] - self.input_limits[0] )/2
@@ -49,6 +50,23 @@ class Pendulum:
         q_next[0] = normalize(q_next[0])
         return q_next
     
+    def calc_input(self, x_start, x_c):
+        
+        iters = int(self.tau // self.dt)
+        iters = 1
+
+        x = x_start
+        controls = []
+        for iter in range(iters):
+            A, B, c = self.linearize_at(x, self.u_bar)
+            u = np.linalg.pinv(B)@(x_c - x - A@x - c)
+            x = self.step(x, u)
+            controls.append(u)
+
+        return x, controls
+
+
+
     # return q_new
     def extend_to(self, q_near, q_rand):
         min_d = np.inf
@@ -81,7 +99,6 @@ class Pendulum:
 
         return states, controls
         
-
     def linearize_at(self, x, u):
         A = np.zeros((self.x_dim, self.x_dim))
         B = np.zeros((self.x_dim, self.u_dim))
@@ -94,7 +111,6 @@ class Pendulum:
 
         B[0,0] = 0
         B[1,0] = (1/self.I)
-
         c = np.ndarray.flatten(self.f(x,u)) - np.ndarray.flatten(A@x) - np.ndarray.flatten(B*u)
 
         return A, B, c
@@ -112,5 +128,6 @@ class Pendulum:
         if use_convex_hull:
             return convex_hull_of_point_and_polytope(state.reshape(x.shape),zonotope(x,G))
         """
-        return pp.to_AH_polytope(pp.zonotope(x,G))
+
+        return pp.to_AH_polytope(pp.zonotope(G,x))
 

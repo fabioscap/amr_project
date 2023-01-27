@@ -3,8 +3,10 @@ import matplotlib.pyplot as plt
 import time
 import utils
 
-from algorithms import RRT, RGRRT
+from algorithms import RRT, RGRRT, R3T
 from models import Pendulum, Unicycle
+
+from algorithms.r3t.r3t import AABBTree
 
 from rtree import index
 
@@ -89,7 +91,7 @@ def test_rrt_pendulum():
 
 def test_rgrrt_pendulum():
     start = time.time()
-    # np.random.seed(1834913)
+    np.random.seed(1834913)
     p = Pendulum(m_l=0.5 ,dt=0.1)
 
     q0 = np.zeros(2)
@@ -104,7 +106,7 @@ def test_rgrrt_pendulum():
     state_bounds[0] = np.array([-3*pi/2,3*pi/2])
     state_bounds[1] = np.array([-10,10])
 
-    planner = RGRRT(q0, q_goal,  0.05, state_bounds, p.get_reachable_points)
+    planner = RGRRT(q0, q_goal,  0.1, state_bounds, p.get_reachable_points)
 
     success, goal_node, nodes = planner.plan(max_nodes=80000, plt=None)
     
@@ -162,8 +164,74 @@ def test_AH_to_bbox():
     bbox = utils.AABB.from_AH(AH)
 
 
-#test_rgrrt_pendulum()
+def test_bbox_tree():
+    tree = AABBTree(3)
+    import pypolycontain as pp
+
+
+    l1 = np.array([-1,-1,-1])
+    u1 = np.array([1,1,1])
+
+    bbox1 = utils.AABB(l1,u1)
+
+    l2 = l1 + 1
+    u2 = u1 + 1
+    bbox2 = utils.AABB(l2,u2)
+
+    tree.insert_bbox(hash(bbox1), bbox1)
+    tree.insert_bbox(hash(bbox2), bbox2)
+
+    l3 = np.array([1.2,1.2,1.2])
+    u3 = np.array([1.4,1.4,1.4])
+
+    bbox3 = utils.AABB(l3,u3)
+
+    print(tree.intersection(bbox3))
+
+def test_r3t_pendulum():
+    start = time.time()
+    np.random.seed(1834913)
+    p = Pendulum(m_l=0.5 ,dt=0.1)
+
+    q0 = np.zeros(2)
+    q_goal = np.array([np.pi, 0])
+
+    plt.scatter(q0[0], q0[1], c="red")
+    plt.scatter(q_goal[0], q_goal[1], marker="x", c="red")
+
+    pi = np.pi
+    state_bounds = np.zeros((2,2))
+
+    state_bounds[0] = np.array([-3*pi/2,3*pi/2])
+    state_bounds[1] = np.array([-10,10])
+
+    planner = R3T(q0, q_goal,  0.1, state_bounds, 
+                  solve_input_func=p.calc_input,
+                  get_kpoints_func=p.get_reachable_points, 
+                  get_polytope_func=p.get_reachable_AH)
+
+    success, goal_node, nodes = planner.plan(max_nodes=1000, plt=None)
+    
+    elapsed = time.time()-start
+    # utils.plot(planner.initial_node, plt=plt)
+
+    if success:
+        plan = planner.get_plan(goal_node, plt=plt)
+        plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
+        print(plan)
+        pass
+
+    
+
+    print(f"{elapsed} seconds")
+    print(f"expanded {nodes} nodes")
+    # plt.show()
+
+
+# test_rgrrt_pendulum()
 # test_rrt_pendulum()
 
 #test_point_to_polytope()
 # test_AH_to_bbox()
+
+test_r3t_pendulum()
