@@ -210,10 +210,10 @@ def test_r3t_pendulum():
                   get_kpoints_func=p.get_reachable_points, 
                   get_polytope_func=p.get_reachable_AH)
 
-    success, goal_node, nodes = planner.plan(max_nodes=1000, plt=None)
+    success, goal_node, nodes = planner.plan(max_nodes=5000, plt=None)
     
     elapsed = time.time()-start
-    # utils.plot(planner.initial_node, plt=plt)
+    utils.plot(planner.initial_node, plt=plt)
 
     if success:
         plan = planner.get_plan(goal_node, plt=plt)
@@ -225,7 +225,7 @@ def test_r3t_pendulum():
 
     print(f"{elapsed} seconds")
     print(f"expanded {nodes} nodes")
-    # plt.show()
+    plt.show()
 
 
 # test_rgrrt_pendulum()

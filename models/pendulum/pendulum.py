@@ -53,7 +53,7 @@ class Pendulum:
     def calc_input(self, x_start, x_c):
         
         iters = int(self.tau // self.dt)
-        iters = 1
+        #iters = 1
 
         x = x_start
         controls = []
@@ -62,7 +62,7 @@ class Pendulum:
             u = np.linalg.pinv(B)@(x_c - x - A@x - c)
             x = self.step(x, u)
             controls.append(u)
-
+        
         return x, controls
 
 
