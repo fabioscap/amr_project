@@ -232,7 +232,7 @@ def test_r3t_pendulum():
     plt.show()
 
 
-test_rgrrt_pendulum()
+#test_rgrrt_pendulum()
 # test_rrt_pendulum()
 
 #test_point_to_polytope()

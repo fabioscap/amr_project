@@ -1,4 +1,8 @@
 import numpy as np
+from matplotlib.patches import Polygon,Rectangle
+from scipy.spatial import ConvexHull
+from lib.operations import AH_polytope_vertices 
+
 
 from scipy import sparse
 import pypolycontain as pp
@@ -99,4 +103,29 @@ class AABB: # axis aligned bounding box
             U[d] = np.dot(Gd,x) + g[d] 
         
         return AABB(L,U)
+    
+    def plot_AABB(self,plt,col):
+        anchor_point = self.l
+        width = abs(self.l[0]-self.u[0])
+        heigth = abs(self.l[1]-self.u[1])
+        plt.gca().add_patch(Rectangle(anchor_point,
+                    width,heigth,
+                    edgecolor = col,
+                    fill=False,lw=1))
 
+def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.1,N=20,epsilon=0.001,plt=None):
+    v,w=AH_polytope_vertices(polytope,N=N,epsilon=epsilon)
+    try:
+        v=v[ConvexHull(v).vertices,:]
+    except:
+        v=v[ConvexHull(w).vertices,:]
+    x = np.append(v[0:2,:],[state],axis=0)
+    p=Polygon(x,edgecolor = color,facecolor = color,alpha = alpha,lw=1)
+    plt.gca().add_patch(p)
+
+
+# dai a R3T.expand il plt e inserisci la seguente riga in r3t.py -> riga 79
+'''
+if plt!=None:
+    utils.visualize_polytope_convexhull(polytope,x,plt=plt)
+'''
