@@ -180,43 +180,53 @@ class PolytopeTree:
         #AABB query
 
         # polytope relative to closest kpoint
-        polytope_id = self.kpoints_tree.nearest(query)
-        polytope_star = self.polytope_id_to_polytope[polytope_id]
-        n_calls = 1
+        id_star = self.kpoints_tree.nearest(query)
+        polytope_star = self.polytope_id_to_polytope[id_star]
+        
         point_star, d_star = utils.distance_point_polytope(query, polytope_star)
-
-        if d_star == 0:
+        n_calls = 1
+        
+        if d_star == 1e-9:
             return polytope_star, d_star, point_star
 
         # box centered in query large 2d_star
-        heuristic_box = utils.AABB(-d_star*np.ones(self.dim) + query, d_star*np.ones(self.dim) + query)
+        heuristic_box = utils.AABB(-d_star*np.ones(self.dim)*1.001 + query, d_star*np.ones(self.dim)*1.001 + query)
         
         intersecting_polytopes_ids = self.aabb_tree.intersection(heuristic_box)
+        # print("intersecting first box:", len(intersecting_polytopes_ids))
 
         # intersecting_polytopes_ids.remove(polytope_id)
         # return polytope_star, d_star, point_star
-        dropped_polytope_ids = set()
+        dropped_polytope_ids = {id_star,}
+        
         while intersecting_polytopes_ids != set():
             idx = intersecting_polytopes_ids.pop()
 
-            P_cand = self.polytope_id_to_polytope[idx]
+            # spare some calls to the solver
+            if idx in dropped_polytope_ids or idx == id_star:
+                # print("already did")
+                continue
+            else:
+                P_cand = self.polytope_id_to_polytope[idx]
+                p, d = utils.distance_point_polytope(query, P_cand)
+                n_calls += 1
 
-            p, d = utils.distance_point_polytope(query, P_cand)
-            n_calls += 1
             if d < d_star:
                 d_star = d
-
+                id_star = idx
                 polytope_star = P_cand
                 point_star = p
-                if d< d_star*0.5:
-                    # redo the candidates
-                    heuristic_box = utils.AABB(-d_star*np.ones(self.dim) + query, d_star*np.ones(self.dim) + query)
-                    
-                    intersecting_polytopes_ids = self.aabb_tree.intersection(heuristic_box) 
-                    intersecting_polytopes_ids -= dropped_polytope_ids
 
-            else: 
+                # redo the candidates
+                heuristic_box = utils.AABB(-d_star*np.ones(self.dim)*1.001 + query, d_star*np.ones(self.dim)*1.001 + query)
+
+                intersecting_polytopes_ids = self.aabb_tree.intersection(heuristic_box) 
                 dropped_polytope_ids.add(idx)
+                # print("intersecting next box:", len(intersecting_polytopes_ids - dropped_polytope_ids))
+            else:
+                dropped_polytope_ids.add(idx)
+        # print("n_calls",n_calls)
+        # input()
         return polytope_star, d_star, point_star
 
 class AABBTree:
