@@ -217,6 +217,7 @@ def test_r3t_pendulum():
     
     elapsed = time.time()-start
     utils.plot(planner.initial_node, plt=plt)
+    utils.plot(planner.initial_node, plt=plt)
 
     if success:
         plan = planner.get_plan(goal_node, plt=plt)
@@ -228,7 +229,7 @@ def test_r3t_pendulum():
 
     print(f"{elapsed} seconds")
     print(f"expanded {nodes} nodes")
-    # plt.show()
+    plt.show()
 
 
 test_rgrrt_pendulum()

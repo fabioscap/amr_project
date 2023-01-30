@@ -63,7 +63,7 @@ class Pendulum:
             
             x = self.step(x, u)
             controls.append(u)
-
+        
         return x, controls
 
 

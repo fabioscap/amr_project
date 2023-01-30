@@ -1,6 +1,6 @@
 import numpy as np
 
-
+from scipy import sparse
 import pypolycontain as pp
 import qpsolvers
 
@@ -43,9 +43,13 @@ def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
     A[:,:n_dim] = - np.eye(n_dim)
     A[:,n_dim:] = AH.T
 
+    sA = sparse.csr_matrix(A)
+    sP = sparse.csr_matrix(P)
+    sG = sparse.csr_matrix(G)
+    
     b = (query.reshape(-1) - AH.t.reshape(-1)).reshape(-1)
 
-    solution = qpsolvers.solve_qp(P,q,G=G,h=h,A=A,b=b, solver="osqp")
+    solution = qpsolvers.solve_qp(sP,q,G=sG,h=h,A=sA,b=b, solver="osqp")
 
     delta = solution[:n_dim]
     x = solution[n_dim:]
