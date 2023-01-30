@@ -6,7 +6,7 @@ import numpy as np
 
 class R3T:
     
-    def __init__(self, initial_state, goal_state, eps, state_bounds, solve_input_func, get_polytope_func, get_kpoints_func):
+    def __init__(self, initial_state, goal_state, eps, state_bounds, solve_input_func, get_polytope_func, get_kpoints_func, tau):
         self.dim = initial_state.shape[0]
         self.initial_state = initial_state
         self.goal_state = goal_state
@@ -21,16 +21,18 @@ class R3T:
         self.solve_input_func = solve_input_func
         self.get_polytope_func = get_polytope_func
         self.get_kpoints_func = get_kpoints_func
+        self.tau = tau
+
 
         # map
         self.polytope_id_to_node = {}
         self.state_to_node = {}
 
         self.initial_state_id = hash(str(self.initial_state))
-
+        
         # insert polytope
-        polytope = self.get_polytope_func(initial_state)
-        kpoints = self.get_kpoints_func(initial_state)
+        polytope = self.get_polytope_func(initial_state, self.tau)
+        kpoints = self.get_kpoints_func(initial_state, self.tau)
         self.polytope_tree.insert(polytope, kpoints)
         self.state_to_node[self.initial_state_id] = self.initial_node
         self.polytope_id_to_node[hash(polytope)] = self.initial_node
@@ -45,7 +47,6 @@ class R3T:
             high = self.state_bounds[i,1]
             low  = self.state_bounds[i,0]
             rnd[i] = (high-low)*rnd[i] + low
-        
         return rnd
     
     # find q_near
@@ -60,7 +61,7 @@ class R3T:
         
         x = node_near.state
 
-        x_next, controls = self.solve_input_func(x, point_near)
+        x_next, controls = self.solve_input_func(x, point_near, self.tau)
         
         # add node to tree
         cost = sum([np.linalg.norm(u) for u in controls])
@@ -71,8 +72,8 @@ class R3T:
             # add state to database
             state_id = hash(str(x_next))
             # insert polytope
-            polytope = self.get_polytope_func(x_next)
-            kpoints = self.get_kpoints_func(x_next)
+            polytope = self.get_polytope_func(x_next, self.tau)
+            kpoints = self.get_kpoints_func(x_next, self.tau)
             self.polytope_tree.insert(polytope, kpoints)
 
 
@@ -113,7 +114,8 @@ class R3T:
                 q_parent = node_next.parent.state
                 plt.scatter(q_next[0], q_next[1], c="blue")
                 plt.plot([q_parent[0], q_next[0]],[q_parent[1], q_next[1]], c="blue")
-
+                plt.draw()
+                plt.pause(0.05)
 
             goal = self.goal_check(q_next, self.goal_state)
 
@@ -180,7 +182,7 @@ class PolytopeTree:
         # polytope relative to closest kpoint
         polytope_id = self.kpoints_tree.nearest(query)
         polytope_star = self.polytope_id_to_polytope[polytope_id]
-
+        n_calls = 1
         point_star, d_star = utils.distance_point_polytope(query, polytope_star)
 
         if d_star == 0:
@@ -193,26 +195,28 @@ class PolytopeTree:
 
         # intersecting_polytopes_ids.remove(polytope_id)
         # return polytope_star, d_star, point_star
-        while intersecting_polytopes_ids != []:
+        dropped_polytope_ids = set()
+        while intersecting_polytopes_ids != set():
             idx = intersecting_polytopes_ids.pop()
 
             P_cand = self.polytope_id_to_polytope[idx]
 
             p, d = utils.distance_point_polytope(query, P_cand)
-
+            n_calls += 1
             if d < d_star:
                 d_star = d
+
                 polytope_star = P_cand
                 point_star = p
+                if d< d_star*0.5:
+                    # redo the candidates
+                    heuristic_box = utils.AABB(-d_star*np.ones(self.dim) + query, d_star*np.ones(self.dim) + query)
+                    
+                    intersecting_polytopes_ids = self.aabb_tree.intersection(heuristic_box) 
+                    intersecting_polytopes_ids -= dropped_polytope_ids
 
-                # redo the candidates
-                # heuristic_box = utils.AABB(-d_star*np.ones(self.dim) + query, d_star*np.ones(self.dim) + query)
-                
-                # intersecting_polytopes_ids = self.aabb_tree.intersection(heuristic_box) 
-
-                # intersecting_polytopes_ids.remove(idx)
-            else: continue
-
+            else: 
+                dropped_polytope_ids.add(idx)
         return polytope_star, d_star, point_star
 
 class AABBTree:
@@ -239,7 +243,7 @@ class AABBTree:
         
         lu = np.concatenate((bbox.l, bbox.u))
 
-        intersections = list(self.AABB_idx.intersection(lu))
+        intersections = set(self.AABB_idx.intersection(lu))
 
         return intersections
 

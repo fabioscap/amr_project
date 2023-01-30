@@ -11,14 +11,15 @@ from algorithms.r3t.r3t import AABBTree
 from rtree import index
 
 def plot_pendulum():
-    p = Pendulum(m_l=0.5, b=1)
+    step_size = 0.01
+    p = Pendulum(b=0.1, dt=step_size)
 
-    q = np.array([0.0, 0.5])
+    q = np.array([0.0, 0.0])
     plt.scatter(q[0],q[1],c="red")
     thetas = [q[0]]
     dthetas = [q[1]]
     for i in range(50000):
-        q = p.step(q, 0.0, 0.001)
+        q = p.step(q, 0.0)
         thetas.append(q[0])
         dthetas.append(q[1])
 
@@ -61,8 +62,8 @@ def test_rtree():
 
 def test_rrt_pendulum():
     start = time.time()
-    np.random.seed(1834913)
-    p = Pendulum(m_l=0.5 ,dt=0.1)
+
+    p = Pendulum(dt=0.01, l=0.5, g=9.8)
     q0 = np.zeros(2)
     q_goal = np.array([np.pi, 0])
 
@@ -73,26 +74,27 @@ def test_rrt_pendulum():
     state_bounds = np.zeros((2,2))
 
     state_bounds[0] = np.array([-3*pi/2,3*pi/2])
-    state_bounds[1] = np.array([-10,10])
+    state_bounds[1] = np.array([-12,12])
 
 
-    rrt = RRT(q0, q_goal,  0.05, state_bounds, p.extend_to)
+    rrt = RRT(q0, q_goal,  0.05, state_bounds, p.extend_to, tau=p.dt)
 
-    success, goal_node = rrt.plan(max_iters=20000, plt=None)
+    success, goal_node, n_nodes = rrt.plan(max_nodes=100000, plt=None)
     elapsed = time.time()-start
-    utils.plot(rrt.initial_node, plt=plt)
+    # utils.plot(rrt.initial_node, plt=plt)
 
     if success:
         plan = rrt.get_plan(goal_node, plt=plt)
         plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
-        # print(plan)
+        print("n_nodes", n_nodes)
+
     print(f"{elapsed} seconds")
     plt.show()
 
 def test_rgrrt_pendulum():
     start = time.time()
     np.random.seed(1834913)
-    p = Pendulum(m_l=0.5 ,dt=0.1)
+    p = Pendulum(dt=0.01)
 
     q0 = np.zeros(2)
     q_goal = np.array([np.pi, 0])
@@ -106,9 +108,9 @@ def test_rgrrt_pendulum():
     state_bounds[0] = np.array([-3*pi/2,3*pi/2])
     state_bounds[1] = np.array([-10,10])
 
-    planner = RGRRT(q0, q_goal,  0.1, state_bounds, p.get_reachable_points)
+    planner = RGRRT(q0, q_goal,  0.05, state_bounds, p.get_reachable_points, tau=0.1)
 
-    success, goal_node, nodes = planner.plan(max_nodes=80000, plt=None)
+    success, goal_node, nodes = planner.plan(max_nodes=10000, plt=None)
     
     elapsed = time.time()-start
     utils.plot(planner.initial_node, plt=plt)
@@ -191,7 +193,7 @@ def test_bbox_tree():
 def test_r3t_pendulum():
     start = time.time()
     np.random.seed(1834913)
-    p = Pendulum(m_l=0.5 ,dt=0.1)
+    p = Pendulum(dt=0.01)
 
     q0 = np.zeros(2)
     q_goal = np.array([np.pi, 0])
@@ -205,15 +207,16 @@ def test_r3t_pendulum():
     state_bounds[0] = np.array([-3*pi/2,3*pi/2])
     state_bounds[1] = np.array([-10,10])
 
-    planner = R3T(q0, q_goal,  0.1, state_bounds, 
+    planner = R3T(q0, q_goal,  0.05, state_bounds, 
                   solve_input_func=p.calc_input,
                   get_kpoints_func=p.get_reachable_points, 
-                  get_polytope_func=p.get_reachable_AH)
+                  get_polytope_func=p.get_reachable_AH,
+                  tau=0.1)
 
-    success, goal_node, nodes = planner.plan(max_nodes=1000, plt=None)
+    success, goal_node, nodes = planner.plan(max_nodes=20000,plt=None)
     
     elapsed = time.time()-start
-    # utils.plot(planner.initial_node, plt=plt)
+    utils.plot(planner.initial_node, plt=plt)
 
     if success:
         plan = planner.get_plan(goal_node, plt=plt)
@@ -228,7 +231,7 @@ def test_r3t_pendulum():
     # plt.show()
 
 
-# test_rgrrt_pendulum()
+test_rgrrt_pendulum()
 # test_rrt_pendulum()
 
 #test_point_to_polytope()

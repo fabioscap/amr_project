@@ -16,8 +16,6 @@ class Pendulum:
         
         self.dt = dt
 
-        self.tau = 2*dt # to do solve input
-
         self.m = m
         self.m_l = m_l
         self.l = l
@@ -28,7 +26,6 @@ class Pendulum:
         
         self.u_bar =  ( self.input_limits[0] + self.input_limits[1] )/2
         self.u_diff = ( self.input_limits[1] - self.input_limits[0] )/2
-
 
         self.I = m*l**2 + (m_l*l**2)/12
 
@@ -45,21 +42,25 @@ class Pendulum:
     # return next state (theta, theta_dot) after applying control u for time dt
     def step(self, q, u):
         # euler: q_k+1 = q_k + f(q_k, u_k)*dt
-
         q_next = q + self.f(q,u)*self.dt
         q_next[0] = normalize(q_next[0])
         return q_next
     
-    def calc_input(self, x_start, x_c):
+    def calc_input(self, x_start, x_c, tau):
         
-        iters = int(self.tau // self.dt)
-        iters = 1
+        iters = int(tau // self.dt)
 
+        A, B, c = self.linearize_at(x_start, self.u_bar)
+
+        A*= tau
+        B*= tau
+        c*= tau
+        u = np.linalg.pinv(B)@(x_c - x_start - A@x_start - c)
+        # print(u)
         x = x_start
         controls = []
-        for iter in range(iters):
-            A, B, c = self.linearize_at(x, self.u_bar)
-            u = np.linalg.pinv(B)@(x_c - x - A@x - c)
+        for _ in range(iters):
+            
             x = self.step(x, u)
             controls.append(u)
 
@@ -68,13 +69,17 @@ class Pendulum:
 
 
     # return q_new
-    def extend_to(self, q_near, q_rand):
+    def extend_to(self, q_near, q_rand, tau):
         min_d = np.inf
         q_next = None
         u = None
 
         for control in self.motion_primitives:
-            q_cand = self.step(q_near, control)
+            T = 0
+            q_cand = q_near.copy()
+            while T<tau:
+                q_cand = self.step(q_cand, control)
+                T += self.dt
             delta = q_rand-q_cand
             delta[0] = normalize(delta[0])
 
@@ -84,16 +89,19 @@ class Pendulum:
                 q_next = q_cand
                 u = control
                 min_d = d
-
         return q_next, u
     
-    def get_reachable_points(self, state):
+    def get_reachable_points(self, state, tau):
 
         states = []
         controls = []
 
         for control in self.motion_primitives:
-            cand = self.step(state, control)
+            T = 0
+            cand = state
+            while T<tau:
+                cand = self.step(cand, control)
+                T += self.dt
             states.append(cand)
             controls.append(control)
 
@@ -115,19 +123,16 @@ class Pendulum:
 
         return A, B, c
     
-    def get_reachable_AH(self, state):
+    def get_reachable_AH(self, state, tau):
         A, B, c = self.linearize_at(state, self.u_bar)
-        A = A*self.dt + np.eye(A.shape[0])
-        B *= self.dt
-        c *= self.dt
+        A = A*tau + np.eye(A.shape[0])
+        B *= tau
+        c *= tau
         x = np.ndarray.flatten(A@state) + np.ndarray.flatten(B*self.u_bar) + c
 
         assert(len(x)==len(state))
         G = np.atleast_2d(B*self.u_diff)
-        """
-        if use_convex_hull:
-            return convex_hull_of_point_and_polytope(state.reshape(x.shape),zonotope(x,G))
-        """
 
-        return pp.to_AH_polytope(pp.zonotope(G,x))
+        AH = pp.to_AH_polytope(pp.zonotope(G,x))
+        return pp.to_AH_polytope(AH)
 

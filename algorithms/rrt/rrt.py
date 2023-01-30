@@ -2,9 +2,7 @@ from rtree import index
 import numpy as np
 
 class StateTree:
-    def __init__(self, 
-                 dim, # dimension of the state
-                 ):
+    def __init__(self, dim ):
         self.dim = dim
 
         # set properties for nearest neighbor
@@ -21,9 +19,6 @@ class StateTree:
         self.state_id_to_state[state_id] = state
 
     def nearest(self, state):
-        # https://github.com/wualbert/r3t/blob/master/common/basic_rrt.py
-        # they stack the state for some reason
-
         nearest_id = list(self.state_idx.nearest(state, num_results=1))[0]
 
         nearest = self.state_id_to_state[nearest_id]
@@ -48,7 +43,7 @@ class Node:
             return True
 
     def __hash__(self) -> int:
-        return hash(str(self.state)) + hash(str(self.u))
+        return hash(str(self.state))
     
     def __eq__(self, __o: object) -> bool:
         return self.__hash__() == __o.__hash__()
@@ -58,21 +53,22 @@ class Node:
 
 class RRT:
     
-    def __init__(self, initial_state, goal_state, eps, state_bounds, extend_func):
+    def __init__(self, initial_state, goal_state, eps, state_bounds, extend_func, tau):
         self.dim = initial_state.shape[0]
         self.initial_state = initial_state
         self.goal_state = goal_state
         self.eps = eps
         self.state_bounds = state_bounds # shape(dim,2)
 
-        self.initial_node = Node(initial_state)
-
         self.state_tree = StateTree(self.dim)
 
         self.extend_func = extend_func
+        self.tau = tau
 
         # map
         self.state_to_node = {}
+
+        self.initial_node = Node(initial_state)
         self.initial_state_id = hash(str(self.initial_state))
         self.state_to_node[self.initial_state_id] = self.initial_node
 
@@ -95,11 +91,13 @@ class RRT:
     # find q_near
     def nearest_neighbor(self, q_rand):
         id_near, q_near = self.state_tree.nearest(q_rand)
-
         return q_near
     
     def expand(self, q_near, q_rand):
-        q_next, u = self.extend_func(q_near, q_rand)
+        q_next, u = self.extend_func(q_near, q_rand, self.tau)
+
+        if hash(str(q_next)) in self.state_to_node.keys():
+            return None
 
         node_near = self.state_to_node[hash(str(q_near))]
 
@@ -119,24 +117,28 @@ class RRT:
         else:
             return None
 
-    def plan(self, max_iters, plt=None):
+    def plan(self, max_nodes, plt=None):
 
         goal = self.goal_check(self.initial_state, self.goal_state)
         if goal:
             print("goal")
             return True
 
-        for iter in range(max_iters):
-            if iter%100 == 0:
-                print(iter)
-            q_rand = self.sample_state()
+        
+        for node in range(max_nodes):
+            if node%1000 == 0:
+                print(node)
 
+            q_rand = self.sample_state()
             q_near = self.nearest_neighbor(q_rand)
 
             node_next = self.expand(q_near, q_rand)
 
+            if node_next is None:
+                node -= 1
+                continue
             q_next = node_next.state
-            
+
             if plt != None:
                 q_parent = node_next.parent.state
                 plt.scatter(q_next[0], q_next[1], c="blue")
@@ -148,10 +150,10 @@ class RRT:
             if goal:
                 print("goal")
                 print(self.min_distance)
-                return True, node_next
+                return True, node_next, node
         print("no goal")
         print(self.min_distance)
-        return False, None
+        return False, None, node
     
     def get_plan(self, node: Node, plt=None):
         plan = [node]
@@ -171,8 +173,8 @@ class RRT:
 
     def goal_check(self, q, q_goal):
         delta = q-q_goal
-
         norm = np.linalg.norm(delta)
+
         if norm < self.min_distance:
             self.min_distance = norm
         return norm < self.eps

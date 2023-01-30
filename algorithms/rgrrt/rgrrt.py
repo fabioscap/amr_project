@@ -2,7 +2,7 @@ from algorithms.rrt.rrt import StateTree, Node
 import numpy as np
 
 class RGRRT:
-    def __init__(self, initial_state, goal_state, eps, state_bounds, get_reachable_func):
+    def __init__(self, initial_state, goal_state, eps, state_bounds, get_reachable_func, tau):
         self.dim = initial_state.shape[0]
         self.initial_state = initial_state
         self.goal_state = goal_state
@@ -15,7 +15,7 @@ class RGRRT:
         self.reachable_tree = StateTree(self.dim)
 
         self.get_reachable_func = get_reachable_func
-
+        self.tau = tau
         # maps
         self.state_to_node = {} # from state_id to node
         self.reachable_to_node = {} # form reachable_id to (node, u)
@@ -27,7 +27,7 @@ class RGRRT:
 
         self.state_tree.insert(self.initial_state_id, self.initial_state)
         
-        initial_reachable, controls = self.get_reachable_func(self.initial_state)
+        initial_reachable, controls = self.get_reachable_func(self.initial_state, self.tau)
         for reachable, control in zip(initial_reachable, controls):
             reachable_id = hash(str(reachable))
             self.reachable_to_node[reachable_id] = (self.initial_node, control)
@@ -80,7 +80,7 @@ class RGRRT:
             # update maps
             self.state_to_node[state_id] = node_next
 
-            reachable, controls = self.get_reachable_func(q_next)
+            reachable, controls = self.get_reachable_func(q_next, self.tau)
             for reachable, control in zip(reachable, controls):
                 reachable_id = hash(str(reachable))
                 self.reachable_to_node[reachable_id] = (node_next, control)
