@@ -123,7 +123,7 @@ class Pendulum:
 
         return A, B, c
     
-    def get_reachable_AH(self, state, tau):
+    def get_reachable_AH(self, state, tau, convex_hull=True):
         A, B, c = self.linearize_at(state, self.u_bar)
         A = A*tau + np.eye(A.shape[0])
         B *= tau
@@ -134,5 +134,10 @@ class Pendulum:
         G = np.atleast_2d(B*self.u_diff)
 
         AH = pp.to_AH_polytope(pp.zonotope(G,x))
-        return pp.to_AH_polytope(AH)
+
+        if convex_hull:
+            state = state.reshape(-1,1) # shape (n,1)
+            AH = pp.convex_hull_of_point_and_polytope(state, AH)
+
+        return AH
 
