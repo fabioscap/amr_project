@@ -363,6 +363,7 @@ def AH_polytope_vertices(P,N=200,epsilon=0.001,solver="osqp"):
     """
     Returns N*2 matrix of vertices
     """
+
     try:
         P.vertices_2D
         if type(P.vertices_2D) == type(None):

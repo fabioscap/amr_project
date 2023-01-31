@@ -213,7 +213,7 @@ def test_r3t_pendulum():
                   get_polytope_func=p.get_reachable_AH,
                   tau=0.1)
 
-    success, goal_node, nodes = planner.plan(max_nodes=20000,plt=None)
+    success, goal_node, nodes = planner.plan(max_nodes=20000,plt=plt)
     
     elapsed = time.time()-start
     utils.plot(planner.initial_node, plt=plt)

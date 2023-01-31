@@ -57,7 +57,7 @@ class R3T:
 
         return node_near, point_near
     
-    def expand(self, node_near: Node, point_near):
+    def expand(self, node_near: Node, point_near,plt):
         
         x = node_near.state
 
@@ -75,6 +75,8 @@ class R3T:
             polytope = self.get_polytope_func(x_next, self.tau)
             kpoints = self.get_kpoints_func(x_next, self.tau)
             self.polytope_tree.insert(polytope, kpoints)
+            if plt!=None:
+                utils.visualize_polytope_convexhull(polytope,x,plt=plt)
 
 
             # add link to node
@@ -105,7 +107,7 @@ class R3T:
                           # because it did not expand tree
                 continue
 
-            node_next = self.expand(r_near, node_near)
+            node_next = self.expand(r_near, node_near,plt)
             if node_next is None:
                 node -= 1
                 continue
@@ -116,6 +118,7 @@ class R3T:
                 plt.plot([q_parent[0], q_next[0]],[q_parent[1], q_next[1]], c="blue")
                 plt.draw()
                 plt.pause(0.05)
+
 
             goal = self.goal_check(q_next, self.goal_state)
 
