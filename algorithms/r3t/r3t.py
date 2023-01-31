@@ -49,6 +49,10 @@ class R3T:
             high = self.state_bounds[i,1]
             low  = self.state_bounds[i,0]
             rnd[i] = (high-low)*rnd[i] + low
+
+            goal_bias_rnd = np.random.rand(1)
+            if goal_bias_rnd < 0.3:
+                return self.goal_state + np.random.randn()*0.3
         return rnd
     
     # find q_near
