@@ -56,7 +56,16 @@ class Pendulum:
         B*= tau
         c*= tau
         u = np.linalg.pinv(B)@(x_c - x_start - A@x_start - c)
-        # print(u)
+
+        # due to linearization u might break the limits
+        # so we clamp it
+        # u = min(self.input_limits[1], max(self.input_limits[0], u))
+
+        if u < self.input_limits[0]:
+            u = self.input_limits[0]
+        elif u > self.input_limits[1]:
+            u = self.input_limits[1]
+        
         x = x_start
         controls = []
         for _ in range(iters):

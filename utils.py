@@ -119,8 +119,9 @@ def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.1,N=20,eps
         v=v[ConvexHull(v).vertices,:]
     except:
         v=v[ConvexHull(w).vertices,:]
+    # x = v[0:2,:]
     x = np.append(v[0:2,:],[state],axis=0)
-    p=Polygon(x,edgecolor = color,facecolor = color,alpha = alpha,lw=1)
+    p=Polygon(v,edgecolor = color,facecolor = color,alpha = alpha,lw=1)
     plt.gca().add_patch(p)
 
 

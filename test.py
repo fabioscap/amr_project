@@ -192,7 +192,7 @@ def test_bbox_tree():
 
 def test_r3t_pendulum():
     start = time.time()
-    np.random.seed(1834913)
+    # np.random.seed(1834913)
     p = Pendulum(dt=0.01)
 
     q0 = np.zeros(2)
@@ -211,13 +211,16 @@ def test_r3t_pendulum():
                   solve_input_func=p.calc_input,
                   get_kpoints_func=p.get_reachable_points, 
                   get_polytope_func=p.get_reachable_AH,
-                  tau=0.1)
-
-    success, goal_node, nodes = planner.plan(max_nodes=20000,plt=plt)
-    
+                  tau=0.2,)
+    success, goal_node, nodes = planner.plan(max_nodes=3000,plt=None)
+    print("nodes", nodes)
+    print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
     elapsed = time.time()-start
     utils.plot(planner.initial_node, plt=plt)
-    utils.plot(planner.initial_node, plt=plt)
+    for polytope_id in planner.polytope_tree.polytope_id_to_polytope.keys():
+        x = planner.polytope_id_to_node[polytope_id].state
+        polytope = planner.polytope_tree.polytope_id_to_polytope[polytope_id]
+        utils.visualize_polytope_convexhull(polytope,x,plt=plt)
 
     if success:
         plan = planner.get_plan(goal_node, plt=plt)

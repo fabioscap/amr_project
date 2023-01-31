@@ -16,7 +16,7 @@ class R3T:
         self.initial_node = Node(initial_state)
 
         self.polytope_tree = PolytopeTree(self.dim)
-        
+        self.state_tree = StateTree(self.dim)
 
         self.solve_input_func = solve_input_func
         self.get_polytope_func = get_polytope_func
@@ -34,6 +34,8 @@ class R3T:
         polytope = self.get_polytope_func(initial_state, self.tau)
         kpoints = self.get_kpoints_func(initial_state, self.tau)
         self.polytope_tree.insert(polytope, kpoints)
+        self.state_tree.insert(self.initial_state_id, self.initial_state)
+
         self.state_to_node[self.initial_state_id] = self.initial_node
         self.polytope_id_to_node[hash(polytope)] = self.initial_node
         self.min_distance = np.inf
@@ -62,30 +64,32 @@ class R3T:
         x = node_near.state
 
         x_next, controls = self.solve_input_func(x, point_near, self.tau)
-        
+        state_id = hash(str(x_next))
+
+        _, closest_state = self.state_tree.nearest(x_next)
+
+        if np.linalg.norm(x_next-closest_state) < 1e-3:
+            return None
+
         # add node to tree
         cost = sum([np.linalg.norm(u) for u in controls])
         node_next = Node(x_next, controls, node_near, cost=cost)
 
         new_child = node_near.add_child(node_next)
-        if new_child:
-            # add state to database
-            state_id = hash(str(x_next))
-            # insert polytope
-            polytope = self.get_polytope_func(x_next, self.tau)
-            kpoints = self.get_kpoints_func(x_next, self.tau)
-            self.polytope_tree.insert(polytope, kpoints)
-            if plt!=None:
-                utils.visualize_polytope_convexhull(polytope,x,plt=plt)
 
+        # insert polytope
+        polytope = self.get_polytope_func(x_next, self.tau)
+        kpoints = self.get_kpoints_func(x_next, self.tau)
+        self.polytope_tree.insert(polytope, kpoints)
+        self.state_tree.insert(state_id, x_next)
+        if plt!=None:
+            utils.visualize_polytope_convexhull(polytope,x,plt=plt)
 
-            # add link to node
-            self.state_to_node[state_id] = node_next
-            self.polytope_id_to_node[hash(polytope)] = node_next
+        # add link to node
+        self.state_to_node[state_id] = node_next
+        self.polytope_id_to_node[hash(polytope)] = node_next
 
-            return node_next
-        else:
-            return None
+        return node_next
         
     def plan(self, max_nodes, plt=None):
 
@@ -94,23 +98,23 @@ class R3T:
             print("goal")
             return True
 
-        for node in range(max_nodes):
-
-            if node%100 == 0:
-                print(node)
+        n_nodes = 1
+        while n_nodes < max_nodes:
+            if n_nodes%100 == 0:
+                print("nodes", n_nodes)
+                _, c = self.state_tree.nearest(self.goal_state)
+                print("dist", np.linalg.norm(c-self.goal_state))
 
             q_rand = self.sample_state()
 
             r_near, node_near = self.nearest_neighbor(q_rand)
             if r_near is None:
-                node -= 1 # iteration does not count
-                          # because it did not expand tree
                 continue
 
             node_next = self.expand(r_near, node_near,plt)
             if node_next is None:
-                node -= 1
                 continue
+            n_nodes+= 1
             q_next = node_next.state
             if plt != None:
                 q_parent = node_next.parent.state
@@ -125,10 +129,10 @@ class R3T:
             if goal:
                 print("goal")
                 print(self.min_distance)
-                return True, node_next, node
+                return True, node_next, n_nodes
         print("no goal")
         print(self.min_distance)
-        return False, None, node
+        return False, None, n_nodes
     
     def goal_check(self, q, q_goal):
         delta = q-q_goal
@@ -250,6 +254,8 @@ class AABBTree:
 
         lu = np.concatenate((bbox.l, bbox.u))
         self.AABB_idx.insert(polytope_id, lu)
+        if polytope_id in self.AABB_to_polytope:
+            print("ASDASDAS")
         self.AABB_to_polytope[polytope_id] = polytope
 
     def intersection(self, bbox: utils.AABB):
