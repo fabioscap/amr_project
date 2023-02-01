@@ -9,7 +9,7 @@ class Hopper1D:
 
     modes = {FLIGHT, CONTACT, BOUNCE}
 
-    def __init__(self, m=1, l=1, p=0.1, b=0.8, g=9.8, f_max=80., epsilon = 1e-7, dt=0.001):
+    def __init__(self, m=1, l=1, p=0.1, b=0.8, g=9.8, f_max=1000., epsilon = 1e-7, dt=0.001):
         self.m = m
         self.l = l
         self.p = p
@@ -74,21 +74,21 @@ class Hopper1D:
         modes = self.get_mode(x)
         assert len(modes) == 1
         if   modes[0] == Hopper1D.FLIGHT:
-            #print("flight")
+            # print("flight")
             x_next = x + self.f_flight(x)*self.dt
         elif modes[0] == Hopper1D.CONTACT:
             x_next = x + self.f_contact(x,u)*self.dt
         elif modes[0] == Hopper1D.BOUNCE:
-            #print("contact")
+            # print("bounce")
             x_next = self.f_bounce(x)
-
+        else:
+            raise Exception()
         return x_next
 
     def calc_input(self, x_start, x_c, tau):
         iters = int(tau // self.dt)
 
         A, B, c = self.linearize_at(x_start, self.u_bar, self.get_mode(x_start)[0], tau)
-
         u = np.linalg.pinv(B)@(x_c - x_start - A@x_start - c)
 
         # due to linearization u might break the limits
@@ -103,9 +103,10 @@ class Hopper1D:
         x = x_start
         controls = []
         for _ in range(iters):
+            # print(f"{x} {u}")
             x = self.step(x, u)
             controls.append(u)
-        
+        # print(f"start {x_start}, goal {x_c} reached {x}")
         return x, controls
 
     # return q_new
@@ -137,22 +138,23 @@ class Hopper1D:
             c = np.array([0, -self.g])*dt
         elif mode == self.CONTACT:
             A = (np.array([[0,1],[0,0]])*dt + np.eye(2))
-            B = np.array([[0, -1/self.m]])
+            B = (np.array([[0, 1/self.m]])*dt).reshape(2,1)
             c = np.array([0, -self.g])*dt
         elif mode == self.BOUNCE:
             # xdot_k+1 = -b xdot_k
-            B = np.array([[0,0]])
-            A = np.zeros([[1, 0],[0,-self.b]])
-            c = np.zeros(2)
+            B = np.array([[0,0]]).reshape(2,1)
+            A = np.array([[0, 0],[0,-self.b]])
+            c = np.array([self.l+self.epsilon, 0.0])
 
         return A,B,c
 
     
-    def get_reachable_AH(self, state, tau, convex_hull=False):
+    def get_reachable_AH(self, state, tau, convex_hull=True):
         polytopes_list = []
+        available_modes = self.get_mode(state)
         for mode in self.modes:
             
-            if mode not in self.get_mode(state):
+            if mode not in available_modes:
                 continue
    
             A,B,c = self.linearize_at(state, self.u_bar, mode, tau)   

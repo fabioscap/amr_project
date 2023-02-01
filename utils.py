@@ -50,7 +50,7 @@ def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
     sA = sparse.csr_matrix(A)
     sP = sparse.csr_matrix(P)
     sG = sparse.csr_matrix(G)
-    
+
     b = (query.reshape(-1) - AH.t.reshape(-1)).reshape(-1)
 
     solution = qpsolvers.solve_qp(sP,q,G=sG,h=h,A=sA,b=b, solver="osqp")
@@ -104,14 +104,18 @@ class AABB: # axis aligned bounding box
         
         return AABB(L,U)
     
-    def plot_AABB(self,plt,col):
+    def plot_AABB(self,plt,col, plot = None):
+        if plot != None:
+            plot.remove()
         anchor_point = self.l
         width = abs(self.l[0]-self.u[0])
         heigth = abs(self.l[1]-self.u[1])
-        plt.gca().add_patch(Rectangle(anchor_point,
+        plot = plt.gca().add_patch(Rectangle(anchor_point,
                     width,heigth,
                     edgecolor = col,
                     fill=False,lw=1))
+        return plot
+        
 
 def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.1,N=20,epsilon=0.001,plt=None):
     v,w=AH_polytope_vertices(polytope,N=N,epsilon=epsilon)

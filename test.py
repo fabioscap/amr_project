@@ -4,7 +4,7 @@ import time
 import utils
 
 from algorithms import RRT, RGRRT, R3T
-from models import Pendulum, Unicycle
+from models import Pendulum, Unicycle, Hopper1D
 
 from algorithms.r3t.r3t import AABBTree
 
@@ -29,7 +29,6 @@ def plot_pendulum():
     plt.xlabel("theta")
     plt.ylabel("dtheta")
     plt.show()
-
 
 def test_rtree():
     n = 100
@@ -141,7 +140,6 @@ def test_point_to_polytope():
     
     utils.distance_point_polytope(query, AH)
 
-
 def test_AH_to_bbox():
     import warnings
     warnings.filterwarnings("ignore")
@@ -164,7 +162,6 @@ def test_AH_to_bbox():
     AH = pp.to_AH_polytope(P)
 
     bbox = utils.AABB.from_AH(AH)
-
 
 def test_bbox_tree():
     tree = AABBTree(3)
@@ -217,11 +214,81 @@ def test_r3t_pendulum():
     print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
     elapsed = time.time()-start
     utils.plot(planner.initial_node, plt=plt)
+
+    """
     for polytope_id in planner.polytope_tree.polytope_id_to_polytope.keys():
         x = planner.polytope_id_to_node[polytope_id].state
         polytope = planner.polytope_tree.polytope_id_to_polytope[polytope_id]
         utils.visualize_polytope_convexhull(polytope,x,plt=plt)
+    """
+        
+    if success:
+        plan = planner.get_plan(goal_node, plt=plt)
+        plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
+        print(plan)
+        pass
 
+    
+
+    print(f"{elapsed} seconds")
+    print(f"expanded {nodes} nodes")
+    plt.show()
+
+
+def plot_hopper_1D():
+    p = Hopper1D()
+
+    x = np.array([2, 0.0])
+    plt.scatter(x[0],x[1],c="red")
+    h = [x[0]]
+    dh = [x[1]]
+    for i in range(5000):
+        x = p.step(x, 80)
+        h.append(x[0])
+        dh.append(x[1])
+
+    plt.plot(h,dh)
+
+    plt.xlabel("h")
+    plt.ylabel("dh")
+    plt.show()
+
+def test_r3t_hopper_1d():
+    start = time.time()
+    # np.random.seed(1834913)
+    p = Hopper1D(dt=0.001)
+
+    q0 = np.array([2,0])
+    q_goal = np.array([3, 0])
+
+    plt.scatter(q0[0], q0[1], c="red")
+    plt.scatter(q_goal[0], q_goal[1], marker="x", c="red")
+
+    pi = np.pi
+    state_bounds = np.zeros((2,2))
+    #0.5 5.5
+    state_bounds[0] = np.array([0.5,5.5])
+    state_bounds[1] = np.array([-10,10])
+
+    planner = R3T(q0, q_goal,  0.2, state_bounds, 
+                  solve_input_func=p.calc_input,
+                  get_kpoints_func=p.get_reachable_points, 
+                  get_polytope_func=p.get_reachable_AH,
+                  tau=0.01,)
+    success, goal_node, nodes = planner.plan(max_nodes=1000,plt=plt)
+    plt.show()
+    print("nodes", nodes)
+    print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
+    elapsed = time.time()-start
+    utils.plot(planner.initial_node, plt=plt)
+
+    """
+    for polytope_id in planner.polytope_tree.polytope_id_to_polytope.keys():
+        x = planner.polytope_id_to_node[polytope_id].state
+        polytope = planner.polytope_tree.polytope_id_to_polytope[polytope_id]
+        utils.visualize_polytope_convexhull(polytope,x,plt=plt)
+    """
+        
     if success:
         plan = planner.get_plan(goal_node, plt=plt)
         plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
@@ -241,4 +308,7 @@ def test_r3t_pendulum():
 #test_point_to_polytope()
 # test_AH_to_bbox()
 
-test_r3t_pendulum()
+
+test_r3t_hopper_1d()
+
+# plot_hopper_1D()

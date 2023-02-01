@@ -51,7 +51,7 @@ class R3T:
             rnd[i] = (high-low)*rnd[i] + low
 
             goal_bias_rnd = np.random.rand(1)
-            if goal_bias_rnd < 0.3:
+            if goal_bias_rnd < 0:
                 return self.goal_state + np.random.randn()*0.3
         return rnd
     
@@ -104,18 +104,18 @@ class R3T:
 
         n_nodes = 1
         while n_nodes < max_nodes:
-            if n_nodes%100 == 0:
+            if n_nodes%10 == 0:
                 print("nodes", n_nodes)
                 _, c = self.state_tree.nearest(self.goal_state)
                 print("dist", np.linalg.norm(c-self.goal_state))
 
             q_rand = self.sample_state()
 
-            r_near, node_near = self.nearest_neighbor(q_rand)
+            node_near, r_near = self.nearest_neighbor(q_rand)
             if r_near is None:
                 continue
 
-            node_next = self.expand(r_near, node_near,plt)
+            node_next = self.expand(node_near, r_near,plt)
             if node_next is None:
                 continue
             n_nodes+= 1
@@ -124,9 +124,16 @@ class R3T:
                 q_parent = node_next.parent.state
                 plt.scatter(q_next[0], q_next[1], c="blue")
                 plt.plot([q_parent[0], q_next[0]],[q_parent[1], q_next[1]], c="blue")
-                plt.draw()
-                plt.pause(0.05)
-
+                try:
+                    q_rand_plot.remove()
+                    q_near_plot.remove()
+                except:
+                    pass
+                q_rand_plot = plt.scatter(q_rand[0], q_rand[1], marker="x", c="green")
+                q_near_plot = plt.scatter(node_near.state[0], node_near.state[1], c="purple")
+                #plt.draw()
+                #plt.pause(0.05)
+                #input()
 
             goal = self.goal_check(q_next, self.goal_state)
 
@@ -165,7 +172,7 @@ class R3T:
 
 
 class PolytopeTree:
-
+    plot = None
     def __init__(self, dim) -> None:
 
         self.dim = dim
@@ -205,7 +212,9 @@ class PolytopeTree:
         
         intersecting_polytopes_ids = self.aabb_tree.intersection(heuristic_box)
         # print("intersecting first box:", len(intersecting_polytopes_ids))
-
+        import matplotlib.pyplot as plt
+        
+        self.plot = heuristic_box.plot_AABB(plt,"red", self.plot)
         # intersecting_polytopes_ids.remove(polytope_id)
         # return polytope_star, d_star, point_star
         dropped_polytope_ids = {id_star,}
