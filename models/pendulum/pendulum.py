@@ -143,7 +143,6 @@ class Pendulum:
         G = np.atleast_2d(B*self.u_diff)
 
         AH = pp.to_AH_polytope(pp.zonotope(G,x))
-
         if convex_hull:
             state = state.reshape(-1,1) # shape (n,1)
             AH = pp.convex_hull_of_point_and_polytope(state, AH)
