@@ -1,5 +1,5 @@
 import numpy as np
-from utils import normalize
+from utils import normalize, convex_hull_of_point_and_polytope
 import pypolycontain as pp
 
 class Pendulum:
@@ -145,7 +145,7 @@ class Pendulum:
         AH = pp.to_AH_polytope(pp.zonotope(G,x))
         if convex_hull:
             state = state.reshape(-1,1) # shape (n,1)
-            AH = pp.convex_hull_of_point_and_polytope(state, AH)
+            AH = convex_hull_of_point_and_polytope(state, AH)
 
         return AH
 

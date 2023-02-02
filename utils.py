@@ -134,3 +134,28 @@ def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.1,N=20,eps
 if plt!=None:
     utils.visualize_polytope_convexhull(polytope,x,plt=plt)
 '''
+
+# pypolycontain's function is broken
+def convex_hull_of_point_and_polytope(x, Q):
+    r"""
+    Inputs:
+        x: numpy n*1 array
+        Q: AH-polytope in R^n
+    Returns:
+        AH-polytope representing convexhull(x,Q)
+    
+    .. math::
+        \text{conv}(x,Q):=\{y | y= \lambda q + (1-\lambda) x, q \in Q\}.
+    """
+    Q=pp.to_AH_polytope(Q)
+    q=Q.P.H.shape[1]
+    new_T=np.hstack((Q.T,Q.t-x))
+    new_t=x
+    new_H_1=np.hstack((Q.P.H,-Q.P.h))
+    new_H_2=np.zeros((2,q+1))
+    new_H_2[0,q],new_H_2[1,q]=1,-1
+    new_H=np.vstack((new_H_1,new_H_2))
+    new_h=np.zeros((Q.P.h.shape[0]+2,1))
+    new_h[Q.P.h.shape[0],0],new_h[Q.P.h.shape[0]+1,0]=1,0
+    new_P=pp.H_polytope(new_H,new_h)
+    return pp.AH_polytope(t=new_t,T=new_T,P=new_P)

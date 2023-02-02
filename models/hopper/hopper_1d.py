@@ -1,5 +1,6 @@
 import numpy as np
 import pypolycontain as pp
+from utils import convex_hull_of_point_and_polytope
 
 class Hopper1D:
 
@@ -167,7 +168,7 @@ class Hopper1D:
             AH = pp.to_AH_polytope(pp.zonotope(G,x))
             if convex_hull:
                 state = state.reshape(-1,1) # shape (n,1)
-                AH = pp.convex_hull_of_point_and_polytope(state, AH)
+                AH = convex_hull_of_point_and_polytope(state, AH)
 
             polytopes_list.append(AH)
 
