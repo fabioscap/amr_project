@@ -312,8 +312,8 @@ def test_r3t_hopper_1d():
     q0 = np.array([2,0])
     q_goal = np.array([3, 0])
 
-    plt.scatter(q0[0], q0[1], c="red")
-    plt.scatter(q_goal[0], q_goal[1], marker="x", c="red")
+    plt.scatter(q0[0], q0[1], s=5, c="red")
+    plt.scatter(q_goal[0], q_goal[1], s=5,marker="x", c="red")
 
     pi = np.pi
     state_bounds = np.zeros((2,2))
@@ -321,7 +321,7 @@ def test_r3t_hopper_1d():
     state_bounds[0] = np.array([0.5,5.5])
     state_bounds[1] = np.array([-10,10])
 
-    planner = R3T(q0, q_goal,  0.05, state_bounds, 
+    planner = R3T(q0, q_goal,  0.1, state_bounds, 
                   solve_input_func=p.calc_input,
                   get_kpoints_func=p.get_reachable_points, 
                   get_polytope_func=p.get_reachable_AH,
@@ -329,15 +329,16 @@ def test_r3t_hopper_1d():
     try:
 
         success, goal_node, nodes = planner.plan(max_nodes=800,plt=None)
+        
         elapsed = time.time()-start
-        utils.plot(planner.initial_node, plt=plt)
+        utils.plot(planner.initial_node, color='blue', size=3, lw=1, plt=plt)
         
         print("nodes", nodes)
         print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
         if success:
             plan = planner.get_plan(goal_node, plt=plt)
-            plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
-            print(plan)
+            #plt.scatter(goal_node.state[0], goal_node.state[1],s = 5, marker="x", c="green")
+            #utils.plot(planner.initial_node, plt=plt)
 
         elapsed = time.time()-start
         print(f"{elapsed} seconds")
@@ -348,7 +349,7 @@ def test_r3t_hopper_1d():
 
 
     elapsed = time.time()-start
-    utils.plot(planner.initial_node, plt=plt)
+    #utils.plot(planner.initial_node, plt=plt)
 
     """
     for polytope_id in planner.polytope_tree.polytope_id_to_polytope.keys():
@@ -361,13 +362,13 @@ def test_r3t_hopper_1d():
     plt.show()
 
 
-test_rgrrt_hopper_1d()
+#test_rgrrt_hopper_1d()
 # test_rrt_pendulum()
 
 #test_point_to_polytope()
 # test_AH_to_bbox()
 
 
-# test_r3t_hopper_1d()
+test_r3t_hopper_1d()
 
-# plot_hopper_1D()
+#plot_hopper_1D()

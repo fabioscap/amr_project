@@ -102,7 +102,7 @@ class R3T:
         
     def plan(self, max_nodes, plt=None):
 
-        goal = self.goal_check(self.initial_node, self.goal_state)
+        goal,valid_states= self.goal_check(self.initial_node, self.goal_state)
         if goal:
             print("goal")
             return True
@@ -139,47 +139,53 @@ class R3T:
                 #plt.pause(0.05)
                 #input()
 
-            goal = self.goal_check(node_next, self.goal_state)
+            goal,valid_states = self.goal_check(node_next, self.goal_state)
 
             if goal:
                 print("goal")
                 print(self.min_distance)
+                node_next.states =valid_states
                 return True, node_next, n_nodes
         print("no goal")
         print(self.min_distance)
         return False, None, n_nodes
     
     def goal_check(self, node_next, q_goal):
-        for q in node_next.states:
+        valid_states =[]
+        for q in node_next.states[::-1]:
+            valid_states.append(q)
             delta = q-q_goal
-
             norm = np.linalg.norm(delta)
             if norm < self.min_distance:
                 self.min_distance = norm
             if norm < self.eps:
-                return True
-        return False
+                valid_states.reverse()
+                return True,valid_states
+            valid_states.append(q)
+        return False,None
     
     def get_plan(self, node: Node, plt=None):
         plan = [node]
         q = node.state
         while node.parent != None:
             plan = [node.parent] + plan
-
-            node = node.parent
-
             if plt != None:
-                states = np.array(node.states)
-                # plt.scatter(state[0],state[1], s=5, c="red")
-                plt.scatter(states[:-1,0], states[:-1,1], c="red",s=3)
-                plt.plot(states[:,0], states[:,1], c="red", linewidth=0.5)
-                q_next = node.state
-
-                plt.plot([q[0],q_next[0]],[q[1],q_next[1]],c="red")
-                q = q_next
+                q = self.plot_node_states(q,node,plt)
+            node = node.parent
+        if plt != None:
+           q = self.plot_node_states(q,node,plt)
 
         return plan
+    
+    def plot_node_states(self,q,node,plt):
+        states = np.array(node.states)
+        plt.scatter(states[:-1,0], states[:-1,1], s=5,c="red")
+        plt.plot(states[:,0], states[:,1], c="red", linewidth=1)
+        q_next = node.state
+        plt.plot([q[0],q_next[0]],[q[1],q_next[1]],c="red",linewidth=1)
         
+        return q_next
+
 
 
 class PolytopeTree:

@@ -12,13 +12,12 @@ import numpy as np
 def normalize(angle):
     return np.arctan2(np.sin(angle), np.cos(angle))
 
-def plot(root_node, plt, th=100):
+def plot(root_node, plt, color='blue', size=3, lw=1, th=100):
     states = np.array(root_node.states).reshape(-1,2)
     state = root_node.state
     # print(states)
-    plt.scatter(state[0],state[1], s=5, c="blue")
-    plt.scatter(states[:-1,0], states[:-1,1], c="green",s=3)
-    plt.plot(states[:,0], states[:,1], c="green", linewidth=0.5)
+    plt.scatter(states[:-1,0], states[:-1,1], c=color,s=size)
+    plt.plot(states[:,0], states[:,1],c=color, linewidth=lw)
 
     for child in root_node.children:
         
@@ -27,7 +26,7 @@ def plot(root_node, plt, th=100):
         norm = np.linalg.norm(state-child_state)
 
         if norm < th:
-            plt.plot([state[0], child_state[0]], [state[1], child_state[1]], c="blue", linewidth=1)
+            plt.plot([state[0], child_state[0]], [state[1], child_state[1]], c=color, linewidth=lw)
         plot(child, plt)
 
 def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
