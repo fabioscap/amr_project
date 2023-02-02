@@ -10,7 +10,7 @@ class Hopper1D:
 
     modes = {FLIGHT, CONTACT, BOUNCE}
 
-    def __init__(self, m=1, l=1, p=0.1, b=0.8, g=9.8, f_max=1000., epsilon = 1e-7, dt=0.001):
+    def __init__(self, m=1, l=1, p=0.1, b=0.9, g=9.8, f_max=200., epsilon = 1e-7, dt=0.001):
         self.m = m
         self.l = l
         self.p = p
@@ -151,8 +151,22 @@ class Hopper1D:
 
     
     def get_reachable_AH(self, state, tau, convex_hull=True):
-        polytopes_list = []
         available_modes = self.get_mode(state)
+
+        A,B,c = self.linearize_at(state, self.u_bar, available_modes[0], tau)
+
+        states = [state]
+        while np.all(B == 0.):
+
+            state = self.step(state, None)
+            states.append(state)
+            available_modes = self.get_mode(state)
+            A,B,c = self.linearize_at(state, self.u_bar, available_modes[0], tau)
+        
+        # assert np.any(B != 0)
+        
+
+        polytopes_list = []
         for mode in self.modes:
             
             if mode not in available_modes:
@@ -173,7 +187,7 @@ class Hopper1D:
             polytopes_list.append(AH)
 
         if len(polytopes_list) == 1:
-            return polytopes_list[0]
+            return states, polytopes_list[0]
         else:
             print(polytopes_list)
             print(self.get_mode(state))

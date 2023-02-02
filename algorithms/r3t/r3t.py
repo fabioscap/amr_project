@@ -13,7 +13,7 @@ class R3T:
         self.eps = eps
         self.state_bounds = state_bounds # shape(dim,2)
 
-        self.initial_node = Node(initial_state)
+
 
         self.polytope_tree = PolytopeTree(self.dim)
         self.state_tree = StateTree(self.dim)
@@ -31,7 +31,9 @@ class R3T:
         self.initial_state_id = hash(str(self.initial_state))
         
         # insert polytope
-        polytope = self.get_polytope_func(initial_state, self.tau)
+        states, polytope = self.get_polytope_func(initial_state, self.tau)
+
+        self.initial_node = Node(states)
         kpoints = self.get_kpoints_func(initial_state, self.tau)
         self.polytope_tree.insert(polytope, kpoints)
         self.state_tree.insert(self.initial_state_id, self.initial_state)
@@ -77,12 +79,15 @@ class R3T:
 
         # add node to tree
         cost = sum([np.linalg.norm(u) for u in controls])
-        node_next = Node(x_next, controls, node_near, cost=cost)
+        
 
-        new_child = node_near.add_child(node_next)
+
 
         # insert polytope
-        polytope = self.get_polytope_func(x_next, self.tau)
+        states, polytope = self.get_polytope_func(x_next, self.tau)
+        node_next = Node(states, controls, node_near, cost=cost)
+        new_child = node_near.add_child(node_next)
+
         kpoints = self.get_kpoints_func(x_next, self.tau)
         self.polytope_tree.insert(polytope, kpoints)
         self.state_tree.insert(state_id, x_next)
@@ -97,7 +102,7 @@ class R3T:
         
     def plan(self, max_nodes, plt=None):
 
-        goal = self.goal_check(self.initial_state, self.goal_state)
+        goal = self.goal_check(self.initial_node, self.goal_state)
         if goal:
             print("goal")
             return True
@@ -106,8 +111,7 @@ class R3T:
         while n_nodes < max_nodes:
             if n_nodes%10 == 0:
                 print("nodes", n_nodes)
-                _, c = self.state_tree.nearest(self.goal_state)
-                print("dist", np.linalg.norm(c-self.goal_state))
+                print("dist",self.min_distance)
 
             q_rand = self.sample_state()
 
@@ -135,7 +139,7 @@ class R3T:
                 #plt.pause(0.05)
                 #input()
 
-            goal = self.goal_check(q_next, self.goal_state)
+            goal = self.goal_check(node_next, self.goal_state)
 
             if goal:
                 print("goal")
@@ -145,13 +149,16 @@ class R3T:
         print(self.min_distance)
         return False, None, n_nodes
     
-    def goal_check(self, q, q_goal):
-        delta = q-q_goal
+    def goal_check(self, node_next, q_goal):
+        for q in node_next.states:
+            delta = q-q_goal
 
-        norm = np.linalg.norm(delta)
-        if norm < self.min_distance:
-            self.min_distance = norm
-        return norm < self.eps
+            norm = np.linalg.norm(delta)
+            if norm < self.min_distance:
+                self.min_distance = norm
+            if norm < self.eps:
+                return True
+        return False
     
     def get_plan(self, node: Node, plt=None):
         plan = [node]
@@ -162,6 +169,10 @@ class R3T:
             node = node.parent
 
             if plt != None:
+                states = np.array(node.states)
+                # plt.scatter(state[0],state[1], s=5, c="red")
+                plt.scatter(states[:-1,0], states[:-1,1], c="red",s=3)
+                plt.plot(states[:,0], states[:,1], c="red", linewidth=0.5)
                 q_next = node.state
 
                 plt.plot([q[0],q_next[0]],[q[1],q_next[1]],c="red")
@@ -172,7 +183,6 @@ class R3T:
 
 
 class PolytopeTree:
-    plot = None
     def __init__(self, dim) -> None:
 
         self.dim = dim
@@ -212,9 +222,7 @@ class PolytopeTree:
         
         intersecting_polytopes_ids = self.aabb_tree.intersection(heuristic_box)
         # print("intersecting first box:", len(intersecting_polytopes_ids))
-        import matplotlib.pyplot as plt
-        
-        self.plot = heuristic_box.plot_AABB(plt,"red", self.plot)
+
         # intersecting_polytopes_ids.remove(polytope_id)
         # return polytope_star, d_star, point_star
         dropped_polytope_ids = {id_star,}

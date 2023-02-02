@@ -253,9 +253,9 @@ def plot_hopper_1D():
     plt.ylabel("dh")
     plt.show()
 
-def test_r3t_hopper_1d():
+def test_rgrrt_hopper_1d():
     start = time.time()
-    # np.random.seed(1834913)
+     #np.random.seed(1834913)
     p = Hopper1D(dt=0.001)
 
     q0 = np.array([2,0])
@@ -270,15 +270,27 @@ def test_r3t_hopper_1d():
     state_bounds[0] = np.array([0.5,5.5])
     state_bounds[1] = np.array([-10,10])
 
-    planner = R3T(q0, q_goal,  0.2, state_bounds, 
-                  solve_input_func=p.calc_input,
-                  get_kpoints_func=p.get_reachable_points, 
-                  get_polytope_func=p.get_reachable_AH,
-                  tau=0.01,)
-    success, goal_node, nodes = planner.plan(max_nodes=1000,plt=plt)
-    plt.show()
-    print("nodes", nodes)
-    print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
+    planner = RGRRT(q0, q_goal,  0.05, state_bounds, get_reachable_func=p.get_reachable_points,tau=0.04,)
+    try:
+
+        success, goal_node, nodes = planner.plan(max_nodes=10000,plt=None)
+        elapsed = time.time()-start
+        utils.plot(planner.initial_node, plt=plt)
+        
+        print("nodes", nodes)
+        if success:
+            plan = planner.get_plan(goal_node, plt=plt)
+            plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
+            print(plan)
+
+        elapsed = time.time()-start
+        print(f"{elapsed} seconds")
+        print(f"expanded {nodes} nodes")
+            
+    except KeyboardInterrupt:
+        pass
+
+
     elapsed = time.time()-start
     utils.plot(planner.initial_node, plt=plt)
 
@@ -289,26 +301,73 @@ def test_r3t_hopper_1d():
         utils.visualize_polytope_convexhull(polytope,x,plt=plt)
     """
         
-    if success:
-        plan = planner.get_plan(goal_node, plt=plt)
-        plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
-        print(plan)
+
+    plt.show()
+
+def test_r3t_hopper_1d():
+    start = time.time()
+     #np.random.seed(1834913)
+    p = Hopper1D(dt=0.001)
+
+    q0 = np.array([2,0])
+    q_goal = np.array([3, 0])
+
+    plt.scatter(q0[0], q0[1], c="red")
+    plt.scatter(q_goal[0], q_goal[1], marker="x", c="red")
+
+    pi = np.pi
+    state_bounds = np.zeros((2,2))
+    #0.5 5.5
+    state_bounds[0] = np.array([0.5,5.5])
+    state_bounds[1] = np.array([-10,10])
+
+    planner = R3T(q0, q_goal,  0.05, state_bounds, 
+                  solve_input_func=p.calc_input,
+                  get_kpoints_func=p.get_reachable_points, 
+                  get_polytope_func=p.get_reachable_AH,
+                  tau=0.04,)
+    try:
+
+        success, goal_node, nodes = planner.plan(max_nodes=800,plt=None)
+        elapsed = time.time()-start
+        utils.plot(planner.initial_node, plt=plt)
+        
+        print("nodes", nodes)
+        print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
+        if success:
+            plan = planner.get_plan(goal_node, plt=plt)
+            plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
+            print(plan)
+
+        elapsed = time.time()-start
+        print(f"{elapsed} seconds")
+        print(f"expanded {nodes} nodes")
+            
+    except KeyboardInterrupt:
         pass
 
-    
 
-    print(f"{elapsed} seconds")
-    print(f"expanded {nodes} nodes")
+    elapsed = time.time()-start
+    utils.plot(planner.initial_node, plt=plt)
+
+    """
+    for polytope_id in planner.polytope_tree.polytope_id_to_polytope.keys():
+        x = planner.polytope_id_to_node[polytope_id].state
+        polytope = planner.polytope_tree.polytope_id_to_polytope[polytope_id]
+        utils.visualize_polytope_convexhull(polytope,x,plt=plt)
+    """
+        
+
     plt.show()
 
 
-#test_rgrrt_pendulum()
+test_rgrrt_hopper_1d()
 # test_rrt_pendulum()
 
 #test_point_to_polytope()
 # test_AH_to_bbox()
 
 
-test_r3t_hopper_1d()
+# test_r3t_hopper_1d()
 
 # plot_hopper_1D()

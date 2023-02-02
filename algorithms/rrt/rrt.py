@@ -26,14 +26,25 @@ class StateTree:
         return nearest_id, nearest
 
 class Node:
-    def __init__(self, state, u=None, parent=None, cost=0.):
-        self.state = state
+    def __init__(self, states, u=None, parent=None, cost=0.):
+        if isinstance(states, np.ndarray):
+            states = [states]
+        self.states = states
         self.u = u
         
         self.parent = parent
 
         self.cost = cost
         self.children = set()
+
+    @property
+    def state(self):
+        if isinstance(self.states, list):
+            return self.states[-1]
+        elif isinstance(self.states, np.ndarray):
+            return self.states
+        else:
+            raise Exception()
 
     def add_child(self, child):
         if child in self.children:

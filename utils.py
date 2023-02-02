@@ -7,23 +7,27 @@ from lib.operations import AH_polytope_vertices
 from scipy import sparse
 import pypolycontain as pp
 import qpsolvers
+import numpy as np
 
 def normalize(angle):
     return np.arctan2(np.sin(angle), np.cos(angle))
 
 def plot(root_node, plt, th=100):
+    states = np.array(root_node.states).reshape(-1,2)
     state = root_node.state
-
-    # plot the parent
-    plt.scatter(state[0], state[1], c="blue")
+    # print(states)
+    plt.scatter(state[0],state[1], s=5, c="blue")
+    plt.scatter(states[:-1,0], states[:-1,1], c="green",s=3)
+    plt.plot(states[:,0], states[:,1], c="green", linewidth=0.5)
 
     for child in root_node.children:
-        child_state = child.state
+        
+        child_state = child.states[0]
 
         norm = np.linalg.norm(state-child_state)
 
         if norm < th:
-            plt.plot([state[0], child_state[0]], [state[1], child_state[1]], c="blue")
+            plt.plot([state[0], child_state[0]], [state[1], child_state[1]], c="blue", linewidth=1)
         plot(child, plt)
 
 def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
@@ -53,9 +57,20 @@ def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
 
     b = (query.reshape(-1) - AH.t.reshape(-1)).reshape(-1)
 
-    solution = qpsolvers.solve_qp(sP,q,G=sG,h=h,A=sA,b=b, solver="osqp")
-
-    delta = solution[:n_dim]
+    solution = qpsolvers.solve_qp(sP,q,G=sG,h=h,A=sA,b=b, solver="gurobi")
+    try:
+        delta = solution[:n_dim]
+    except TypeError:
+        print(query)
+        print(AH.t)
+        print(AH.T)
+        print("----")
+        print(sP)
+        print(q)
+        print(sG)
+        print(h)
+        print(sA)
+        print(b)
     x = solution[n_dim:]
 
     distance = np.linalg.norm(delta)
