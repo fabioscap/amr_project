@@ -109,9 +109,9 @@ class R3T:
 
         n_nodes = 1
         while n_nodes < max_nodes:
-            if n_nodes%1 == 0:
-                print("nodes", n_nodes)
-                print("dist",self.min_distance)
+            if n_nodes%10 == 0:
+                print("\rNodes: {0},     Distance: {1}".format(n_nodes,self.min_distance),end='\r')
+
 
             q_rand = self.sample_state()
 
@@ -145,6 +145,9 @@ class R3T:
                 print("goal")
                 print(self.min_distance)
                 node_next.states =valid_states
+                #node_next.state=None
+                print(node_next.children)
+                
                 return True, node_next, n_nodes
         print("no goal")
         print(self.min_distance)
@@ -152,14 +155,14 @@ class R3T:
     
     def goal_check(self, node_next, q_goal):
         valid_states =[]
-        for q in node_next.states[::-1]:
+        for q in node_next.states:#[::-1]:
             valid_states.append(q)
             delta = q-q_goal
             norm = np.linalg.norm(delta)
             if norm < self.min_distance:
                 self.min_distance = norm
             if norm < self.eps:
-                valid_states.reverse()
+                valid_states
                 return True,valid_states
             valid_states.append(q)
         return False,None
@@ -174,7 +177,6 @@ class R3T:
             node = node.parent
         if plt != None:
            q = self.plot_node_states(q,node,plt)
-
         return plan
     
     def plot_node_states(self,q,node,plt):
@@ -183,7 +185,6 @@ class R3T:
         plt.plot(states[:,0], states[:,1], c="red", linewidth=1)
         q_next = node.state
         plt.plot([q[0],q_next[0]],[q[1],q_next[1]],c="red",linewidth=1)
-        
         return q_next
 
 
