@@ -335,6 +335,7 @@ def test_r3t_hopper_1d():
         print("nodes", nodes)
         print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
         if success:
+            goal_node.states.reverse()
             plan = planner.get_plan(goal_node, plt=plt)
             #plt.scatter(goal_node.state[0], goal_node.state[1],s = 5, marker="x", c="green")
             #utils.plot(planner.initial_node, plt=plt)
@@ -401,7 +402,7 @@ def test_hopper_2d():
     h.linearize_at(x, None, None, None)
 
 
-test_hopper_2d()
+#test_hopper_2d()
 #test_rgrrt_hopper_1d()
 # test_rrt_pendulum()
 
@@ -409,6 +410,6 @@ test_hopper_2d()
 # test_AH_to_bbox()
 
 
-#test_r3t_hopper_1d()
+test_r3t_hopper_1d()
 
 #plot_hopper_1D()

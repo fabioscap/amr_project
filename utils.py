@@ -11,10 +11,9 @@ import qpsolvers
 def normalize(angle):
     return np.arctan2(np.sin(angle), np.cos(angle))
 
-def plot(root_node, plt, color='blue', size=3, lw=1, th=100):
+def plot(root_node, plt, color='#6699CC', size=3, lw=1, th=100):
     states = np.array(root_node.states).reshape(-1,2)
     state = root_node.state
-    # print(states)
     plt.scatter(states[:-1,0], states[:-1,1], c=color,s=size)
     plt.plot(states[:,0], states[:,1],c=color, linewidth=lw)
 
@@ -24,8 +23,10 @@ def plot(root_node, plt, color='blue', size=3, lw=1, th=100):
 
         norm = np.linalg.norm(state-child_state)
 
-        if norm < th:
+        if norm < th and not len(child_state)==0:
             plt.plot([state[0], child_state[0]], [state[1], child_state[1]], c=color, linewidth=lw)
+            plt.scatter(child_state[0], child_state[1], c=color, s=size)
+
         plot(child, plt)
 
 def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
