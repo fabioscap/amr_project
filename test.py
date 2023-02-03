@@ -4,7 +4,7 @@ import time
 import utils
 
 from algorithms import RRT, RGRRT, R3T
-from models import Pendulum, Unicycle, Hopper1D
+from models import Pendulum, Unicycle, Hopper1D, Hopper2D
 
 from algorithms.r3t.r3t import AABBTree
 
@@ -234,7 +234,6 @@ def test_r3t_pendulum():
     print(f"expanded {nodes} nodes")
     plt.show()
 
-
 def plot_hopper_1D():
     p = Hopper1D()
 
@@ -361,7 +360,48 @@ def test_r3t_hopper_1d():
 
     plt.show()
 
+def test_sympy():
+    import sympy
+    from sympy.tensor.array.expressions import ArraySymbol
 
+
+    p = Pendulum()
+
+    step_x = lambda x: p.step(x, 0)
+
+    x_ = sympy.MatrixSymbol('x',2,1)
+    print(x_)
+
+    f = x_[0]+x_[1]
+    print(f.subs(x_, sympy.Matrix([11,1])))
+
+
+def test_hopper_2d():
+    h = Hopper2D(dt=0.01)
+
+    x = np.array([0,1,0,0,1.5,0,3,0,0,0,0])
+    
+    for i in range(10000):
+        mode = h.get_mode(x)[0]
+        print(mode)
+        """
+        x_feet = x[0]
+        y_feet = x[1]
+        if mode == 0:c = "blue"
+        elif mode == 1:c="red"
+        elif mode == 2:c="green"
+        else: c="purple"
+        #plt.scatter(i,y_feet,c=c)
+        #plt.draw()
+        #plt.pause(0.05)
+        """
+        x = h.step(x, np.array([0,0]))
+        h.linearize_at(x, np.array([0,0]), mode, h.dt)
+    
+    h.linearize_at(x, None, None, None)
+
+
+test_hopper_2d()
 #test_rgrrt_hopper_1d()
 # test_rrt_pendulum()
 
@@ -369,6 +409,6 @@ def test_r3t_hopper_1d():
 # test_AH_to_bbox()
 
 
-test_r3t_hopper_1d()
+#test_r3t_hopper_1d()
 
 #plot_hopper_1D()
