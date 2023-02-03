@@ -378,7 +378,7 @@ def test_sympy():
 
 def test_hopper_2d():
     h = Hopper2D(dt=0.01)
-
+    
     x = np.array([0,1,0,0,1.5,0,3,0,0,0,0])
     
     for i in range(10000):
@@ -401,7 +401,54 @@ def test_hopper_2d():
     h.linearize_at(x, None, None, None)
 
 
-test_hopper_2d()
+def test_r3t_hopper_2d():
+    start = time.time()
+     #np.random.seed(1834913)
+    p = Hopper2D(dt=0.005)
+
+    q0 = np.asarray([0., 1., 0, 0, 1.5, 0., 0., 0., 0., 0., 0.])
+    q_goal = np.asarray([10.,1.,0.,0.,1.5,0.,0.,0.,0.,0., 0.])
+
+    plt.scatter(q0[0], q0[1], s=5, c="red")
+    plt.scatter(q_goal[0], q_goal[1], s=5,marker="x", c="red")
+
+    pi = np.pi
+    state_bounds = np.zeros((11,2))
+    state_bounds[0] = np.array([-0.5,9.5])
+    state_bounds[1] = np.array([2,4])
+    state_bounds[2] = np.array([-0.5,0.5])
+    state_bounds[3] = np.array([-0.4,0.4])
+    state_bounds[4] = np.array([1,9])
+    state_bounds[5] = np.array([-3,3])
+    state_bounds[6] = np.array([-10,10])
+    state_bounds[7] = np.array([-4,4])
+    state_bounds[8] = np.array([-4,4])
+    state_bounds[9] = np.array([-20,20])
+
+    planner = R3T(q0, q_goal,  0.1, state_bounds, 
+                  solve_input_func=p.calc_input,
+                  get_kpoints_func=p.get_reachable_points, 
+                  get_polytope_func=p.get_reachable_AH,
+                  tau=0.1,)
+
+    success, goal_node, nodes = planner.plan(max_nodes=800,plt=None)
+    
+    elapsed = time.time()-start
+    utils.plot(planner.initial_node, color='blue', size=3, lw=1, plt=plt)
+    
+    print("nodes", nodes)
+    print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
+    if success:
+        plan = planner.get_plan(goal_node, plt=plt)
+        #plt.scatter(goal_node.state[0], goal_node.state[1],s = 5, marker="x", c="green")
+        #utils.plot(planner.initial_node, plt=plt)
+
+    elapsed = time.time()-start
+    print(f"{elapsed} seconds")
+    print(f"expanded {nodes} nodes")
+
+
+# test_hopper_2d()
 #test_rgrrt_hopper_1d()
 # test_rrt_pendulum()
 
@@ -412,3 +459,4 @@ test_hopper_2d()
 #test_r3t_hopper_1d()
 
 #plot_hopper_1D()
+test_r3t_hopper_2d()

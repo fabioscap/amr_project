@@ -105,11 +105,11 @@ class R3T:
         goal,valid_states= self.goal_check(self.initial_node, self.goal_state)
         if goal:
             print("goal")
-            return True
+            return True, self.initial_node, 1
 
         n_nodes = 1
         while n_nodes < max_nodes:
-            if n_nodes%10 == 0:
+            if n_nodes%1 == 0:
                 print("nodes", n_nodes)
                 print("dist",self.min_distance)
 

@@ -73,6 +73,10 @@ class Hopper2D:
             "B": self.contact_descend_dynamics.jacobian(self.u_)
         }
          
+        self.input_limits = np.vstack([[-500,1.4e3], [500,2.5e3]])
+        self.u_bar =  ( self.input_limits[0,:] + self.input_limits[1,:] )/2
+        self.u_diff = ( self.input_limits[1,:] - self.input_limits[0,:] )/2
+        self.motion_primitives = self._build_primitives(n0=3, n1=3)
 
     def get_ddots(self, x, Fx, Fy, F_leg, u0):
         R = x[4]-self.l1
@@ -176,9 +180,11 @@ class Hopper2D:
         # check if state goes from flight mode to contact mode
         # in that case also update x_td which is the last state component
         start_modes = self.get_mode(x)
-
         x_subs = sympy.Matrix([*list(x)])
-        u_subs = sympy.Matrix([*list(u)])
+        if u is not None:
+            u_subs = sympy.Matrix([*list(u)])
+        else:
+            u_subs = sympy.Matrix([0]*2)
         if start_modes[0] == self.FLIGHT_ASCEND:
             dx = np.array(self.flight_ascend_dynamics.subs(self.x_, x_subs)).reshape(-1).astype(np.float32)
         if start_modes[0] == self.FLIGHT_DESCEND:
@@ -200,14 +206,47 @@ class Hopper2D:
 
 
     def calc_input(self, x_start, x_c, tau):
-        raise NotImplementedError()
+        iters = int(tau // self.dt)
+
+        A, B, c = self.linearize_at(x_start, self.u_bar, self.get_mode(x_start)[0], tau)
+        u = np.linalg.pinv(B)@(x_c - x_start - A@x_start - c)
+
+        # due to linearization u might break the limits
+        # so we clamp it
+        # u = min(self.input_limits[1], max(self.input_limits[0], u))
+        """
+        if u < self.input_limits[0]:
+            u = self.input_limits[0]
+        elif u > self.input_limits[1]:
+            u = self.input_limits[1]
+        """
+        x = x_start
+        controls = []
+        for _ in range(iters):
+            # print(f"{x} {u}")
+            x = self.step(x, u)
+            controls.append(u)
+        # print(f"start {x_start}, goal {x_c} reached {x}")
+        return x, controls
 
     # return q_new
     def extend_to(self, q_near, q_rand, tau):
         raise NotImplementedError()
     
     def get_reachable_points(self, state, tau):
-        raise NotImplementedError()
+        states = []
+        controls = []
+
+        for control in self.motion_primitives:
+            T = 0
+            cand = state
+            while T<tau:
+                cand = self.step(cand, control)
+                T += self.dt
+            states.append(cand)
+            controls.append(control)
+
+        return states, controls
 
         
     def linearize_at(self, x, u, mode, dt):
@@ -219,23 +258,23 @@ class Hopper2D:
         if mode == self.FLIGHT_ASCEND:
             A = (np.eye(x.shape[0]) + dt*np.array(self.flight_ascend_J["A"].subs(self.x_, x_subs)).astype(np.float32))
             B = dt*np.array(self.flight_ascend_J["B"].subs(self.x_, x_subs)).astype(np.float32)
-            dx = np.array(self.flight_ascend_dynamics.subs(self.x_, x_subs)).reshape(-1).astype(np.float32)
-            c = dt*(dx - A@x - B@u)
+            f_bar = np.array(self.flight_ascend_dynamics.subs(self.x_, x_subs)).reshape(-1).astype(np.float32)
+            c = dt*(f_bar - A@x - B@u)
         elif mode == self.FLIGHT_DESCEND:
             A = (np.eye(x.shape[0]) + dt*np.array(self.flight_descend_J["A"].subs(self.x_, x_subs)).astype(np.float32))
             B = dt*np.array(self.flight_descend_J["B"].subs(self.x_, x_subs)).astype(np.float32)
-            dx = np.array(self.flight_descend_dynamics.subs(self.x_, x_subs)).reshape(-1).astype(np.float32)
-            c = dt*(dx - A@x - B@u)
+            f_bar = np.array(self.flight_descend_dynamics.subs(self.x_, x_subs)).reshape(-1).astype(np.float32)
+            c = dt*(f_bar - A@x - B@u)
         elif mode == self.CONTACT_ASCEND:
             A = (np.eye(x.shape[0]) + dt*np.array(self.contact_ascend_J["A"].subs(self.x_, x_subs).subs(self.u_, u_subs)).astype(np.float32))
             B = dt*np.array(self.contact_ascend_J["B"].subs(self.x_, x_subs).subs(self.u_, u_subs)).astype(np.float32)
-            dx = np.array(self.contact_ascend_dynamics.subs(self.x_, x_subs).subs(self.u_, u_subs)).reshape(-1).astype(np.float32)
-            c = dt*(dx - A@x - B@u)
+            f_bar = np.array(self.contact_ascend_dynamics.subs(self.x_, x_subs).subs(self.u_, u_subs)).reshape(-1).astype(np.float32)
+            c = dt*(f_bar - A@x - B@u)
         elif mode == self.CONTACT_DESCEND:
             A = (np.eye(x.shape[0]) + dt*np.array(self.contact_descend_J["A"].subs(self.x_, x_subs).subs(self.u_, u_subs)).astype(np.float32))
             B = dt*np.array(self.contact_descend_J["B"].subs(self.x_, x_subs).subs(self.u_, u_subs)).astype(np.float32)
-            dx = np.array(self.contact_descend_dynamics.subs(self.x_, x_subs).subs(self.u_, u_subs)).reshape(-1).astype(np.float32)
-            c = dt*(dx - A@x - B@u)
+            f_bar = np.array(self.contact_descend_dynamics.subs(self.x_, x_subs).subs(self.u_, u_subs)).reshape(-1).astype(np.float32)
+            c = dt*(f_bar - A@x - B@u)
         else:
             return None    
 
@@ -243,5 +282,60 @@ class Hopper2D:
 
     
     def get_reachable_AH(self, state, tau, convex_hull=True):
-        raise NotImplementedError()
+        available_modes = self.get_mode(state)
+
+        A,B,c = self.linearize_at(state, self.u_bar, available_modes[0], tau)
+
+        states = [state]
+        while np.all(B == 0.):
+
+            state = self.step(state, None)
+            states.append(state)
+            available_modes = self.get_mode(state)
+            A,B,c = self.linearize_at(state, self.u_bar, available_modes[0], tau)
+        
+        # assert np.any(B != 0)
+        
+
+        polytopes_list = []
+        for mode in self.modes:
+            
+            if mode not in available_modes:
+                continue
+   
+            A,B,c = self.linearize_at(state, self.u_bar, mode, tau)   
+
+            x = np.ndarray.flatten(A@state) + np.ndarray.flatten(B@self.u_bar) + c
+
+            assert(len(x)==len(state))
+            G = np.atleast_2d(B@np.diag(self.u_diff))
+
+            AH = pp.to_AH_polytope(pp.zonotope(G,x))
+            if convex_hull:
+                state = state.reshape(-1,1) # shape (n,1)
+                AH = convex_hull_of_point_and_polytope(state, AH)
+
+            polytopes_list.append(AH)
+
+        if len(polytopes_list) == 1:
+            return states, polytopes_list[0]
+        else:
+            print(polytopes_list)
+            print(self.get_mode(state))
+            raise NotImplementedError()
+            return np.asarray(polytopes_list)
+
+    def _build_primitives(self, n0, n1):
+        primitives = []
+
+        u0 = np.linspace(self.input_limits[0,0], self.input_limits[1,0],n0)
+        u1 = np.linspace(self.input_limits[0,1], self.input_limits[1,1],n1)
+        
+        for i in u0:
+            for j in u1:
+                primitives.append(np.array([i,j]))
+        return primitives
+    
+    def goal_check(self,state, target, tol):
+        return np.linalg.norm(state[:-1]-target[:-1]) < tol
 
