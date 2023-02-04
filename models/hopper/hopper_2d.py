@@ -220,6 +220,14 @@ class Hopper2D:
         elif u > self.input_limits[1]:
             u = self.input_limits[1]
         """
+        if   u[0] < self.input_limits[0][0]:
+             u[0] = self.input_limits[0][0]
+        elif u[0] > self.input_limits[0][1]:
+             u[0] = self.input_limits[0][1]
+        if   u[1] < self.input_limits[1][0]:
+             u[1] = self.input_limits[1][0]
+        elif u[1] > self.input_limits[1][1]:
+             u[1] = self.input_limits[1][1]
         x = x_start
         controls = []
         for _ in range(iters):
