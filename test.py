@@ -430,7 +430,7 @@ def test_r3t_hopper_2d():
                   solve_input_func=p.calc_input,
                   get_kpoints_func=p.get_reachable_points, 
                   get_polytope_func=p.get_reachable_AH,
-                  tau=0.1,)
+                  tau=0.1,is_hopper_2d=True)
 
     success, goal_node, nodes = planner.plan(max_nodes=800,plt=None)
     

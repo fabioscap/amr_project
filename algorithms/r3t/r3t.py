@@ -6,14 +6,14 @@ import numpy as np
 
 class R3T:
     
-    def __init__(self, initial_state, goal_state, eps, state_bounds, solve_input_func, get_polytope_func, get_kpoints_func, tau):
+    def __init__(self, initial_state, goal_state, eps, state_bounds, solve_input_func, get_polytope_func, get_kpoints_func, tau,is_hopper_2d=False):
         self.dim = initial_state.shape[0]
         self.initial_state = initial_state
         self.goal_state = goal_state
         self.eps = eps
         self.state_bounds = state_bounds # shape(dim,2)
 
-
+        self.is_hopper_2d = is_hopper_2d
 
         self.polytope_tree = PolytopeTree(self.dim)
         self.state_tree = StateTree(self.dim)
@@ -157,7 +157,10 @@ class R3T:
         valid_states =[]
         for q in node_next.states:#[::-1]:
             valid_states.append(q)
-            delta = q-q_goal
+            if self.is_hopper_2d:
+                delta = q[0:-1]-q_goal[0:-1]
+            else:
+                delta = q-q_goal
             norm = np.linalg.norm(delta)
             if norm < self.min_distance:
                 self.min_distance = norm
