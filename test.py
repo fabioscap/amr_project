@@ -4,7 +4,7 @@ import time
 import utils
 
 from algorithms import RRT, RGRRT, R3T
-from models import Pendulum, Unicycle, Hopper1D, Hopper2D
+from models import Pendulum, Unicycle, Hopper1D, Hopper2D, Hopper2D_old
 
 from algorithms.r3t.r3t import AABBTree
 
@@ -324,7 +324,7 @@ def test_r3t_hopper_1d():
                   solve_input_func=p.calc_input,
                   get_kpoints_func=p.get_reachable_points, 
                   get_polytope_func=p.get_reachable_AH,
-                  tau=0.04,)
+                  tau=0.05,)
     try:
 
         success, goal_node, nodes = planner.plan(max_nodes=800,plt=None)
@@ -379,36 +379,45 @@ def test_sympy():
 
 def test_hopper_2d():
     h = Hopper2D(dt=0.01)
-    
+    h_ = Hopper2D_old(dt=0.01)
     x = np.array([0,1,0,0,1.5,0,3,0,0,0,0])
-    
-    for i in range(10000):
+    x_ = x.copy()
+    u = np.array([0,500])
+    for i in range(1000):
         mode = h.get_mode(x)[0]
-        print(mode)
-        """
-        x_feet = x[0]
         y_feet = x[1]
-        if mode == 0:c = "blue"
-        elif mode == 1:c="red"
-        elif mode == 2:c="green"
-        else: c="purple"
-        #plt.scatter(i,y_feet,c=c)
-        #plt.draw()
-        #plt.pause(0.05)
-        """
-        x = h.step(x, np.array([0,0]))
-        h.linearize_at(x, np.array([0,0]), mode, h.dt)
-    
-    h.linearize_at(x, None, None, None)
+        plt.scatter(i,y_feet,c="red")
+        mode_ = h_.get_mode(x)[0]
+        y_feet_ = x_[1]
+        plt.scatter(i,y_feet_,c="blue")
+        
+        x = h.step(x, u)
+        x_ = h_.step(x_, u)
 
+        
+        A,B,c = h.linearize_at(x, u, mode=None, dt=h.dt)
+        x_j = np.ndarray.flatten(A@x) + np.ndarray.flatten(B@u) + c.reshape(-1)
+
+        A_, B_, c_ = h_.linearize_at(x_, u, mode=None, dt=h_.dt)
+        x_j_ = np.ndarray.flatten(A_@x_) + np.ndarray.flatten(B_@u) + c_.reshape(-1)
+
+        # print(np.linalg.norm(x_j- x_j_))
+
+    plt.show()
 
 def test_r3t_hopper_2d():
     start = time.time()
+    
+    # get seed
+    # seed = np.random.randint(0, 10**6)
+    seed = 5561
+    np.random.seed(seed)
+    print(seed)
      #np.random.seed(1834913)
     p = Hopper2D(dt=0.005)
 
-    q0 = np.asarray([0., 1., 0, 0, 1.5, 0., 0., 0., 0., 0., 0.])
-    q_goal = np.asarray([10.,1.,0.,0.,1.5,0.,0.,0.,0.,0., 0.])
+    q0 = np.asarray([0., 1., 0, 0, 1.5, 0, 0., 0., 0., 0., 0.])
+    q_goal = np.asarray([10,1.,0.,0.,1.5,0.,0.,0.,0.,0., 0.])
 
     plt.scatter(q0[0], q0[1], s=5, c="red")
     plt.scatter(q_goal[0], q_goal[1], s=5,marker="x", c="red")
@@ -430,24 +439,25 @@ def test_r3t_hopper_2d():
                   solve_input_func=p.calc_input,
                   get_kpoints_func=p.get_reachable_points, 
                   get_polytope_func=p.get_reachable_AH,
-                  tau=0.1,is_hopper_2d=True)
+                  tau=0.04,is_hopper_2d=True)
 
-    success, goal_node, nodes = planner.plan(max_nodes=800,plt=None)
+    success, goal_node, nodes = planner.plan(max_nodes=800,plt=plt)
     
     elapsed = time.time()-start
-    utils.plot(planner.initial_node, color='blue', size=3, lw=1, plt=plt)
+    utils.plot_hopper_2d(planner.initial_node, plt=plt)
     
     print("nodes", nodes)
     print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
     if success:
-        plan = planner.get_plan(goal_node, plt=plt)
+        plan = planner.get_plan(goal_node, plt=plt, filepath = "./GOAL.txt")
+        print(seed)
         #plt.scatter(goal_node.state[0], goal_node.state[1],s = 5, marker="x", c="green")
         #utils.plot(planner.initial_node, plt=plt)
 
     elapsed = time.time()-start
     print(f"{elapsed} seconds")
     print(f"expanded {nodes} nodes")
-
+    plt.show()
 
 # test_hopper_2d()
 #test_rgrrt_hopper_1d()
@@ -457,7 +467,7 @@ def test_r3t_hopper_2d():
 # test_AH_to_bbox()
 
 
-test_r3t_hopper_1d()
+# test_r3t_hopper_1d()
 
 #plot_hopper_1D()
 test_r3t_hopper_2d()

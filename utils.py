@@ -11,6 +11,22 @@ import qpsolvers
 def normalize(angle):
     return np.arctan2(np.sin(angle), np.cos(angle))
 
+def plot_hopper_2d(root_node, plt):
+    states = np.array(root_node.states)[:,:2]
+    print(states.shape)
+    state = root_node.state[:2]
+    plt.scatter(states[:-1,0], states[:-1,1],c="green",s=2)
+    plt.plot(states[:,0], states[:,1], linewidth=0.5,c="green")
+    for child in root_node.children:
+    
+        child_state = child.states[0][:2]
+
+        plt.plot([state[0], child_state[0]], [state[1], child_state[1]], linewidth=0.5, c="blue")
+        plt.scatter(child_state[0], child_state[1],c="blue",s=2)
+
+        plot_hopper_2d(child, plt)
+
+
 def plot(root_node, plt, color='#6699CC', size=3, lw=1, th=100):
     states = np.array(root_node.states).reshape(-1,2)
     state = root_node.state

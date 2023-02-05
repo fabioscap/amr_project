@@ -51,27 +51,26 @@ class Hopper2D:
         self.x_ = sympy.MatrixSymbol('x',11,1)
         self.u_ = sympy.MatrixSymbol('u',2, 1)
 
-        self.flight_ascend_dynamics =   sympy.lambdify(self.x_, self._flight_ascend_dynamics(self.x_))
-        self.flight_descend_dynamics =  sympy.lambdify(self.x_, self._flight_descend_dynamics(self.x_))
-        self.contact_ascend_dynamics =  sympy.lambdify([self.x_, self.u_], self._contact_ascend_dynamics(self.x_,  self.u_))
-        self.contact_descend_dynamics = sympy.lambdify([self.x_, self.u_],self._contact_descend_dynamics(self.x_, self.u_))
-
+        self.flight_ascend_dynamics =   self._flight_ascend_dynamics(self.x_)
+        self.flight_descend_dynamics =  self._flight_descend_dynamics(self.x_)
+        self.contact_ascend_dynamics =  self._contact_ascend_dynamics(self.x_,  self.u_)
+        self.contact_descend_dynamics = self._contact_descend_dynamics(self.x_, self.u_)
 
         self.flight_ascend_J = {
-            "A": sympy.lambdify([self.x_, self.u_],self._flight_ascend_dynamics(self.x_).jacobian(self.x_)),
-            "B": sympy.lambdify([self.x_, self.u_],self._flight_ascend_dynamics(self.x_).jacobian(self.u_))
+            "A": self.flight_ascend_dynamics.jacobian(self.x_),
+            "B": self.flight_ascend_dynamics.jacobian(self.u_)
         }
         self.flight_descend_J = {
-            "A": sympy.lambdify([self.x_, self.u_],self._flight_descend_dynamics(self.x_).jacobian(self.x_)),
-            "B": sympy.lambdify([self.x_, self.u_],self._flight_descend_dynamics(self.x_).jacobian(self.u_))
+            "A": self.flight_descend_dynamics.jacobian(self.x_),
+            "B": self.flight_descend_dynamics.jacobian(self.u_)
         }
         self.contact_ascend_J = {
-            "A": sympy.lambdify([self.x_, self.u_],self._contact_ascend_dynamics(self.x_,  self.u_).jacobian(self.x_)),
-            "B": sympy.lambdify([self.x_, self.u_],self._contact_ascend_dynamics(self.x_,  self.u_).jacobian(self.u_))
+            "A": self.contact_ascend_dynamics.jacobian(self.x_),
+            "B": self.contact_ascend_dynamics.jacobian(self.u_)
         }
         self.contact_descend_J = {
-            "A": sympy.lambdify([self.x_, self.u_],self._contact_descend_dynamics(self.x_, self.u_).jacobian(self.x_)),
-            "B": sympy.lambdify([self.x_, self.u_],self._contact_descend_dynamics(self.x_, self.u_).jacobian(self.u_))
+            "A": self.contact_descend_dynamics.jacobian(self.x_),
+            "B": self.contact_descend_dynamics.jacobian(self.u_)
         }
          
         self.input_limits = np.vstack([[-500,1.4e3], [500,2.5e3]])
@@ -181,32 +180,36 @@ class Hopper2D:
         # check if state goes from flight mode to contact mode
         # in that case also update x_td which is the last state component
         start_modes = self.get_mode(x)
-        x = x.reshape(-1,1)
+        x_subs = sympy.Matrix([*list(x)])
         if u is not None:
-            u = u.reshape(-1,1)
+            u_subs = sympy.Matrix([*list(u)])
+        else:
+            u_subs = sympy.Matrix([0]*2)
         if start_modes[0] == self.FLIGHT_ASCEND:
-            dx = self.flight_ascend_dynamics(x)
+            dx = np.array(self.flight_ascend_dynamics.subs(self.x_, x_subs)).reshape(-1).astype(np.float32)
         if start_modes[0] == self.FLIGHT_DESCEND:
-            dx = self.flight_descend_dynamics(x)
+            dx = np.array(self.flight_descend_dynamics.subs(self.x_, x_subs)).reshape(-1).astype(np.float32)
         if start_modes[0] == self.CONTACT_ASCEND:
-            dx = self.contact_ascend_dynamics(x,u)
+            dx = np.array(self.contact_ascend_dynamics.subs(self.x_, x_subs).subs(self.u_, u_subs)).reshape(-1).astype(np.float32)
         if start_modes[0] == self.CONTACT_DESCEND:
-            dx = self.contact_descend_dynamics(x,u)
+            dx = np.array(self.contact_descend_dynamics.subs(self.x_, x_subs).subs(self.u_, u_subs)).reshape(-1).astype(np.float32)
 
         x_next = x + dx*self.dt
 
         end_modes = self.get_mode(x_next)
+
         if self.FLIGHT_DESCEND in start_modes and self.CONTACT_DESCEND in end_modes:
+            input()
             x_next[-1] = x_next[0]
 
-        return x_next.reshape(-1)
+        return x_next
 
 
     def calc_input(self, x_start, x_c, tau):
         iters = int(tau // self.dt)
 
         A, B, c = self.linearize_at(x_start, self.u_bar, self.get_mode(x_start)[0], tau)
-        u = (np.linalg.pinv(B)@(x_c.reshape(-1,1) - x_start - (A@x_start) - c)).reshape(-1)
+        u = np.linalg.pinv(B)@(x_c - x_start - A@x_start - c)
 
         # due to linearization u might break the limits
         # so we clamp it
@@ -258,31 +261,34 @@ class Hopper2D:
         if mode == None:
             mode = self.get_mode(x)[0]
 
-        x = x.reshape(-1,1)
-        u = u.reshape(-1,1)
+        x_subs = sympy.Matrix([*list(x)])
+        u_subs = sympy.Matrix([*list(u)])
         if mode == self.FLIGHT_ASCEND:
-            A = (np.eye(x.shape[0]) + dt*self.flight_ascend_J["A"](x,u))
-            B = dt*self.flight_ascend_J["B"](x,u)
-            f_bar = self.flight_ascend_dynamics(x)
+            A = (np.eye(x.shape[0]) + dt*np.array(self.flight_ascend_J["A"].subs(self.x_, x_subs)).astype(np.float32))
+            B = dt*np.array(self.flight_ascend_J["B"].subs(self.x_, x_subs)).astype(np.float32)
+            f_bar = np.array(self.flight_ascend_dynamics.subs(self.x_, x_subs)).reshape(-1).astype(np.float32)
             c = dt*(f_bar - A@x - B@u)
         elif mode == self.FLIGHT_DESCEND:
-            A = (np.eye(x.shape[0]) + dt*self.flight_descend_J["A"](x,u))
-            B = dt*self.flight_descend_J["B"](x,u)
-            f_bar = self.flight_descend_dynamics(x)
+            A = (np.eye(x.shape[0]) + dt*np.array(self.flight_descend_J["A"].subs(self.x_, x_subs)).astype(np.float32))
+            B = dt*np.array(self.flight_descend_J["B"].subs(self.x_, x_subs)).astype(np.float32)
+            f_bar = np.array(self.flight_descend_dynamics.subs(self.x_, x_subs)).reshape(-1).astype(np.float32)
             c = dt*(f_bar - A@x - B@u)
         elif mode == self.CONTACT_ASCEND:
-            A = (np.eye(x.shape[0]) + dt*self.contact_ascend_J["A"](x,u))
-            B = dt*self.contact_ascend_J["B"](x,u)
-            f_bar = self.contact_ascend_dynamics(x,u)
+            A = (np.eye(x.shape[0]) + dt*np.array(self.contact_ascend_J["A"].subs(self.x_, x_subs).subs(self.u_, u_subs)).astype(np.float32))
+            B = dt*np.array(self.contact_ascend_J["B"].subs(self.x_, x_subs).subs(self.u_, u_subs)).astype(np.float32)
+            f_bar = np.array(self.contact_ascend_dynamics.subs(self.x_, x_subs).subs(self.u_, u_subs)).reshape(-1).astype(np.float32)
             c = dt*(f_bar - A@x - B@u)
         elif mode == self.CONTACT_DESCEND:
-            A = (np.eye(x.shape[0]) + dt*self.contact_descend_J["A"](x,u))
-            B = dt*self.contact_descend_J["B"](x,u)
-            f_bar = self.contact_descend_dynamics(x,u)
+            A = (np.eye(x.shape[0]) + dt*np.array(self.contact_descend_J["A"].subs(self.x_, x_subs).subs(self.u_, u_subs)).astype(np.float32))
+            B = dt*np.array(self.contact_descend_J["B"].subs(self.x_, x_subs).subs(self.u_, u_subs)).astype(np.float32)
+            f_bar = np.array(self.contact_descend_dynamics.subs(self.x_, x_subs).subs(self.u_, u_subs)).reshape(-1).astype(np.float32)
             c = dt*(f_bar - A@x - B@u)
         else:
             return None    
+        print("OLD:")
+        print(f_bar)
 
+        print("---")
         return A,B,c
 
     
@@ -310,8 +316,11 @@ class Hopper2D:
    
             A,B,c = self.linearize_at(state, self.u_bar, mode, tau)   
 
-            x = np.ndarray.flatten(A@state) + np.ndarray.flatten(B@self.u_bar) + np.ndarray.flatten(c)
+            x = np.ndarray.flatten(A@state) + np.ndarray.flatten(B@self.u_bar) + c.reshape(-1)
+            x = x.reshape(-1)
+            assert(x.shape==state.shape)
             G = np.atleast_2d(B@np.diag(self.u_diff))
+
             AH = pp.to_AH_polytope(pp.zonotope(G,x))
             if convex_hull:
                 state = state.reshape(-1,1) # shape (n,1)
@@ -340,4 +349,3 @@ class Hopper2D:
     
     def goal_check(self,state, target, tol):
         return np.linalg.norm(state[:-1]-target[:-1]) < tol
-

@@ -44,18 +44,54 @@ class R3T:
 
     # sample q_rand uniformly
     def sample_state(self):
-        rnd = np.random.rand(self.dim)
 
-        # normalize in bounds [0,1]->[low,high]
-        for i in range(self.dim):
-            high = self.state_bounds[i,1]
-            low  = self.state_bounds[i,0]
-            rnd[i] = (high-low)*rnd[i] + low
+        if self.is_hopper_2d:
+            # [x_hip, y_hip, theta(leg), phi(body), r]
+            # if np.random.rand(1)<0.5:
+            #     return uniform_sampler()
+            rnd = np.random.rand(11)
+            rnd[0] = rnd[0] * 20 - 3
+            rnd[1] = (rnd[1] - 0.5) * 2 * 0.75 + 1.5
+            rnd[2] = np.random.normal(0, np.pi / 4) # (np.random.rand(1)-0.5)*2*np.pi/12
+            rnd[3] = np.random.normal(0, np.pi / 8)#np.random.normal(0, np.pi / 16)
+            rnd[4] = (rnd[4] - 0.5) * 2 * 0.5 + 4
+            rnd[5] = np.random.normal(1.5, 3) #(rnd[5] - 0.5) * 2 * 6
+            rnd[6] = (rnd[6] - 0.5) * 2 * 12 # np.random.normal(0, 6)
+            rnd[7] = np.random.normal(0, 20) # (np.random.rand(1)-0.5)*2*20
+            rnd[8] = np.random.normal(0, 3) # (np.random.rand(1)-0.5)*2*5
+            rnd[9] = (rnd[9] - 0.5) * 2 * 10 + 3 #np.random.normal(2, 12)
+            # convert to hopper foot coordinates
+            rnd_ft = np.zeros(11)
+            rnd_ft[0] = rnd[0]-np.sin(rnd[2])*rnd[4]
+            rnd_ft[1] = rnd[0]-np.cos(rnd[2])*rnd[4]
+            # if np.random.rand(1)<0.7:
+            #     rnd_ft[1]=(rnd[1]/2-0.2)
+            rnd_ft[5] = rnd[5]-rnd[9]*np.sin(rnd[2])-rnd[4]*np.cos(rnd[2])*rnd[7]
+            rnd_ft[6] = rnd[6] - rnd[9] * np.cos(rnd[2]) + rnd[4] * np.sin(rnd[2]) * rnd[7]
+            if rnd_ft[1]<=0:
+                rnd_ft[2]=rnd[2]*2
+                rnd_ft[7]=rnd[7]*5
+            else:
+                rnd_ft[2] = rnd[2]
+                rnd_ft[7] = rnd[7]
+            rnd_ft[3:5] = rnd[3:5]
+            rnd_ft[8:] = rnd[8:]
+            return rnd_ft
 
-            goal_bias_rnd = np.random.rand(1)
-            if goal_bias_rnd < 0:
-                return self.goal_state + np.random.randn()*0.3
-        return rnd
+        else:
+
+            rnd = np.random.rand(self.dim)
+
+            # normalize in bounds [0,1]->[low,high]
+            for i in range(self.dim):
+                high = self.state_bounds[i,1]
+                low  = self.state_bounds[i,0]
+                rnd[i] = (high-low)*rnd[i] + low
+
+                goal_bias_rnd = np.random.rand(1)
+                if goal_bias_rnd < 0.3:
+                    return self.goal_state + np.random.randn()*0.3
+            return rnd
     
     # find q_near
     def nearest_neighbor(self, q_rand):
@@ -68,13 +104,13 @@ class R3T:
     def expand(self, node_near: Node, point_near,plt):
         
         x = node_near.state
-
         x_next, controls = self.solve_input_func(x, point_near, self.tau)
+
         state_id = hash(str(x_next))
 
         _, closest_state = self.state_tree.nearest(x_next)
 
-        if np.linalg.norm(x_next-closest_state) < 1e-3:
+        if np.linalg.norm(x_next-closest_state) < 1e-9:
             return None
 
         # add node to tree
@@ -91,8 +127,7 @@ class R3T:
         kpoints = self.get_kpoints_func(x_next, self.tau)
         self.polytope_tree.insert(polytope, kpoints)
         self.state_tree.insert(state_id, x_next)
-        if plt!=None:
-            utils.visualize_polytope_convexhull(polytope,x,plt=plt)
+
 
         # add link to node
         self.state_to_node[state_id] = node_next
@@ -109,8 +144,8 @@ class R3T:
 
         n_nodes = 1
         while n_nodes < max_nodes:
-            if n_nodes%10 == 0:
-                print("\rNodes: {0},     Distance: {1}".format(n_nodes,self.min_distance),end='\r')
+            if n_nodes%1 == 0:
+                print("\rNodes: {0},     Distance: {1}".format(n_nodes,self.min_distance))
 
 
             q_rand = self.sample_state()
@@ -124,6 +159,7 @@ class R3T:
                 continue
             n_nodes+= 1
             q_next = node_next.state
+
             if plt != None:
                 q_parent = node_next.parent.state
                 plt.scatter(q_next[0], q_next[1], c="blue")
@@ -158,28 +194,40 @@ class R3T:
         for q in node_next.states:#[::-1]:
             valid_states.append(q)
             if self.is_hopper_2d:
-                delta = q[0:-1]-q_goal[0:-1]
+                delta = q[0]-q_goal[0]
+                
             else:
                 delta = q-q_goal
             norm = np.linalg.norm(delta)
             if norm < self.min_distance:
                 self.min_distance = norm
+            if self.is_hopper_2d and q[0] >q_goal[0]:
+                return True, valid_states
             if norm < self.eps:
                 valid_states
                 return True,valid_states
             valid_states.append(q)
         return False,None
     
-    def get_plan(self, node: Node, plt=None):
-        plan = [node]
+    def get_plan(self, node: Node, plt=None, filepath=None):
+        plan = [node.states]
         q = node.state
         while node.parent != None:
-            plan = [node.parent] + plan
+            plan = [node.parent.states] + plan
             if plt != None:
-                q = self.plot_node_states(q,node,plt)
+                if self.is_hopper_2d and False:
+                    pass
+                else:
+                    q = self.plot_node_states(q,node,plt)
             node = node.parent
-        if plt != None:
-           q = self.plot_node_states(q,node,plt)
+        if plt != None:          
+            if self.is_hopper_2d and False:
+                pass
+            else:
+                q = self.plot_node_states(q,node,plt)
+        if filepath is not None:
+            with open(filepath,"w") as file:
+                file.write(str(plan))
         return plan
     
     def plot_node_states(self,q,node,plt):
@@ -189,6 +237,15 @@ class R3T:
         q_next = node.state
         plt.plot([q[0],q_next[0]],[q[1],q_next[1]],c="red",linewidth=1)
         return q_next
+
+    def plot_node_states_(self,q,node,plt):
+        states = np.array(node.states)
+        plt.scatter(states[:-1,0], states[:-1,1], s=5,c="red")
+        plt.plot(states[:,0], states[:,1], c="red", linewidth=1)
+        q_next = node.state
+        plt.plot([q[0],q_next[0]],[q[1],q_next[1]],c="red",linewidth=1)
+        return q_next
+
 
 
 
@@ -286,7 +343,7 @@ class AABBTree:
         lu = np.concatenate((bbox.l, bbox.u))
         self.AABB_idx.insert(polytope_id, lu)
         if polytope_id in self.AABB_to_polytope:
-            print("ASDASDAS")
+            print("Warning: polytope duplicate")
         self.AABB_to_polytope[polytope_id] = polytope
 
     def intersection(self, bbox: utils.AABB):
