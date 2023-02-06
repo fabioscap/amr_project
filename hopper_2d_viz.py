@@ -7,12 +7,12 @@ from matplotlib.collections import PatchCollection
 import matplotlib.pyplot as plt
 
 
-def hopper_plot(X,fig,ax, scaling_factor=0.1, alpha=0.5, xlim=None, ylim=None):
+def hopper_plot(X,plt,scaling_factor=0.1, alpha=0.5, xlim=None, ylim=None):
     x,y,theta,phi,r=X[0:5]
     # theta and phi are clockwise positive
     theta *= -1
     phi *= -1
-
+    ax = plt.gca()
     w_1=0.1*scaling_factor
     w_2=0.1*scaling_factor
     h=0.2*scaling_factor
@@ -27,7 +27,7 @@ def hopper_plot(X,fig,ax, scaling_factor=0.1, alpha=0.5, xlim=None, ylim=None):
         ax.set_xlim(xlim)
     if ylim is not None:
         ax.set_ylim(ylim)
-    fig.gca().set_aspect('equal')
+    #ax.set_aspect('equal')
     # leg
     corner=np.array([x,y])
     down_left=np.array([x,y])+np.dot(R,[-w_1,h])
@@ -48,13 +48,15 @@ def hopper_plot(X,fig,ax, scaling_factor=0.1, alpha=0.5, xlim=None, ylim=None):
                                     [up_right[1],up_left[1],down_left[1],down_right[1]]]).reshape(2,4).T, True)]
     ax.add_collection(PatchCollection(body,color=(0.2,0.2,0.8),alpha=alpha,edgecolor=None))
     ax.grid(color=(0,0,0), linestyle='--', linewidth=0.5)
-    return fig, ax
+    return plt
 
-if __name__ == '__main()':
-    fig,ax = plt.subplots()
-    fig.set_size_inches(10, 10)
-    X=[0,0.2,3.5,0.2,0.5]
-    hopper_plot(X,ax,fig)
+if __name__ == '__main__':
+    plt.figure()
+    #fig,ax = plt.subplots()
+    #fig.set_size_inches(10, 10)
+    X=[0.6,0.2,3.5,0.2,0.5]
+    hopper_plot(X,plt)
+    plt.show()
 #def generate_figures():    
 #    for t in range(T+1):
 #        fig,ax = plt.subplots()
