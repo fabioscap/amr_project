@@ -417,7 +417,7 @@ def test_r3t_hopper_2d():
     p = Hopper2D(dt=0.005)
 
     q0 = np.asarray([0., 1., 0, 0, 1.5, 0, 0., 0., 0., 0., 0.])
-    q_goal = np.asarray([10,1.,0.,0.,1.5,0.,0.,0.,0.,0., 0.])
+    q_goal = np.asarray([2,1.,0.,0.,1.5,0.,0.,0.,0.,0., 0.])
 
     plt.scatter(q0[0], q0[1], s=5, c="red")
     plt.scatter(q_goal[0], q_goal[1], s=5,marker="x", c="red")
@@ -449,6 +449,7 @@ def test_r3t_hopper_2d():
     print("nodes", nodes)
     print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
     if success:
+        goal_node.states.reverse()
         plan = planner.get_plan(goal_node, plt=plt, filepath = "./GOAL.txt")
         print(seed)
         #plt.scatter(goal_node.state[0], goal_node.state[1],s = 5, marker="x", c="green")
