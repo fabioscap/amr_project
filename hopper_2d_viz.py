@@ -7,7 +7,7 @@ from matplotlib.collections import PatchCollection
 import matplotlib.pyplot as plt
 
 
-def hopper_plot(X,plt,scaling_factor=0.1, alpha=0.5, xlim=None, ylim=None):
+def hopper_plot(X,plt,scaling_factor=0.7, alpha=0.5, xlim=[0,5], ylim=[0,5]):
     x,y,theta,phi,r=X[0:5]
     # theta and phi are clockwise positive
     theta *= -1
@@ -27,7 +27,7 @@ def hopper_plot(X,plt,scaling_factor=0.1, alpha=0.5, xlim=None, ylim=None):
         ax.set_xlim(xlim)
     if ylim is not None:
         ax.set_ylim(ylim)
-    #ax.set_aspect('equal')
+    ax.set_aspect('equal')
     # leg
     corner=np.array([x,y])
     down_left=np.array([x,y])+np.dot(R,[-w_1,h])
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     plt.figure()
     #fig,ax = plt.subplots()
     #fig.set_size_inches(10, 10)
-    X=[0.6,0.2,3.5,0.2,0.5]
+    X=[1,3,0,0,1.5]
     hopper_plot(X,plt)
     plt.show()
 #def generate_figures():    

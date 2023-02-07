@@ -32,6 +32,9 @@ class Hopper2D:
         self.g = g
         self.r0 = 1.5
 
+        self.body_attitude_limit = np.pi/3-1e-2
+        self.leg_attitude_limit = np.pi/3
+
         # Symbolic variables
         # State variables are s = [x_ft, y_ft, theta, phi, r]
         # x = [s, sdot, x_td]
@@ -74,7 +77,7 @@ class Hopper2D:
             "B": sympy.lambdify([self.x_, self.u_],self._contact_descend_dynamics(self.x_, self.u_).jacobian(self.u_))
         }
          
-        self.input_limits = np.vstack([[-500,1.4e3], [500,2.5e3]])
+        self.input_limits = np.vstack([[-500,1e3], [500,2e3]])
         self.u_bar =  ( self.input_limits[0,:] + self.input_limits[1,:] )/2
         self.u_diff = ( self.input_limits[1,:] - self.input_limits[0,:] )/2
         self.motion_primitives = self._build_primitives(n0=3, n1=3)
@@ -203,6 +206,19 @@ class Hopper2D:
 
 
     def calc_input(self, x_start, x_c, tau):
+        # checks
+        # body attitude is off
+        if x_c[3]+x_c[8]*2e-2>self.body_attitude_limit or x_c[3]+x_c[8]*2e-2<-self.body_attitude_limit:
+            return None, None
+        # stuck in the ground
+        if x_c[1]<-1 or x_c[1]>+8:
+            return None, None
+        # stuck in the ground
+        if x_c[4]+x_c[9]*2e-2<0.2 or x_c[4]+x_c[9]*2e-2>8:
+            # print('r invalid')
+            return None, None
+
+
         iters = int(tau // self.dt)
 
         A, B, c = self.linearize_at(x_start, self.u_bar, self.get_mode(x_start)[0], tau)

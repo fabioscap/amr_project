@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import time
 import utils
+from hopper_2d_viz import hopper_plot
 
 from algorithms import RRT, RGRRT, R3T
 from models import Pendulum, Unicycle, Hopper1D, Hopper2D, Hopper2D_old
@@ -379,27 +380,16 @@ def test_sympy():
 
 def test_hopper_2d():
     h = Hopper2D(dt=0.01)
-    h_ = Hopper2D_old(dt=0.01)
-    x = np.array([0,1,0,0,1.5,0,3,0,0,0,0])
+    x = np.array([0,1,0,0,1.5,1,0,0,0,0,0])
     x_ = x.copy()
-    u = np.array([0,500])
+    u = np.array([0,0])
+    plt.figure()
     for i in range(1000):
-        mode = h.get_mode(x)[0]
-        y_feet = x[1]
-        plt.scatter(i,y_feet,c="red")
-        mode_ = h_.get_mode(x)[0]
-        y_feet_ = x_[1]
-        plt.scatter(i,y_feet_,c="blue")
-        
         x = h.step(x, u)
-        x_ = h_.step(x_, u)
-
-        
-        A,B,c = h.linearize_at(x, u, mode=None, dt=h.dt)
-        x_j = np.ndarray.flatten(A@x) + np.ndarray.flatten(B@u) + c.reshape(-1)
-
-        A_, B_, c_ = h_.linearize_at(x_, u, mode=None, dt=h_.dt)
-        x_j_ = np.ndarray.flatten(A_@x_) + np.ndarray.flatten(B_@u) + c_.reshape(-1)
+        if i % 10 == 0:
+            hopper_plot(x[:5], plt)
+            plt.draw()
+            plt.pause(0.1)
 
         # print(np.linalg.norm(x_j- x_j_))
 
@@ -409,15 +399,15 @@ def test_r3t_hopper_2d():
     start = time.time()
     
     # get seed
-    # seed = np.random.randint(0, 10**6)
-    seed = 5561
+    seed = np.random.randint(0, 10**6)
+    seed = 307574
     np.random.seed(seed)
     print(seed)
      #np.random.seed(1834913)
     p = Hopper2D(dt=0.005)
 
     q0 = np.asarray([0., 1., 0, 0, 1.5, 0, 0., 0., 0., 0., 0.])
-    q_goal = np.asarray([2,1.,0.,0.,1.5,0.,0.,0.,0.,0., 0.])
+    q_goal = np.asarray([10,1.,0.,0.,1.5,0.,0.,0.,0.,0., 0.])
 
     plt.scatter(q0[0], q0[1], s=5, c="red")
     plt.scatter(q_goal[0], q_goal[1], s=5,marker="x", c="red")
@@ -441,7 +431,7 @@ def test_r3t_hopper_2d():
                   get_polytope_func=p.get_reachable_AH,
                   tau=0.04,is_hopper_2d=True)
 
-    success, goal_node, nodes = planner.plan(max_nodes=800,plt=plt)
+    success, goal_node, nodes = planner.plan(max_nodes=2000,plt=plt)
     
     elapsed = time.time()-start
     utils.plot_hopper_2d(planner.initial_node, plt=plt)
@@ -449,8 +439,19 @@ def test_r3t_hopper_2d():
     print("nodes", nodes)
     print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
     if success:
-        goal_node.states.reverse()
+        # goal_node.states.reverse()
         plan = planner.get_plan(goal_node, plt=plt, filepath = "./GOAL.txt")
+        i = 0
+        plt.figure()
+        for states in plan:
+            for state in states:
+                X = state[:5]
+                if i % 15 ==0:
+                    # plot
+                    hopper_plot(X,plt, xlim=[-2,17], ylim=[0,5])
+                    plt.draw()
+                    plt.pause(0.05)
+                i+= 1
         print(seed)
         #plt.scatter(goal_node.state[0], goal_node.state[1],s = 5, marker="x", c="green")
         #utils.plot(planner.initial_node, plt=plt)
@@ -460,7 +461,7 @@ def test_r3t_hopper_2d():
     print(f"expanded {nodes} nodes")
     plt.show()
 
-# test_hopper_2d()
+#test_hopper_2d()
 #test_rgrrt_hopper_1d()
 # test_rrt_pendulum()
 

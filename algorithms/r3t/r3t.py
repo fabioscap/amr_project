@@ -42,7 +42,8 @@ class R3T:
         self.polytope_id_to_node[hash(polytope)] = self.initial_node
         self.min_distance = np.inf
 
-    # sample q_rand uniformly
+
+
     def sample_state(self):
 
         if self.is_hopper_2d:
@@ -50,16 +51,17 @@ class R3T:
             # if np.random.rand(1)<0.5:
             #     return uniform_sampler()
             rnd = np.random.rand(11)
-            rnd[0] = rnd[0] * 20 - 3
+            rnd[0] = rnd[0] * 15 
             rnd[1] = (rnd[1] - 0.5) * 2 * 0.75 + 1.5
             rnd[2] = np.random.normal(0, np.pi / 4) # (np.random.rand(1)-0.5)*2*np.pi/12
             rnd[3] = np.random.normal(0, np.pi / 8)#np.random.normal(0, np.pi / 16)
-            rnd[4] = (rnd[4] - 0.5) * 2 * 0.5 + 4
+            rnd[4] = (rnd[4] - 0.5) * 2 * 0.5 + 2
             rnd[5] = np.random.normal(1.5, 3) #(rnd[5] - 0.5) * 2 * 6
             rnd[6] = (rnd[6] - 0.5) * 2 * 12 # np.random.normal(0, 6)
             rnd[7] = np.random.normal(0, 20) # (np.random.rand(1)-0.5)*2*20
             rnd[8] = np.random.normal(0, 3) # (np.random.rand(1)-0.5)*2*5
             rnd[9] = (rnd[9] - 0.5) * 2 * 10 + 3 #np.random.normal(2, 12)
+            
             # convert to hopper foot coordinates
             rnd_ft = np.zeros(11)
             rnd_ft[0] = rnd[0]-np.sin(rnd[2])*rnd[4]
@@ -76,6 +78,7 @@ class R3T:
                 rnd_ft[7] = rnd[7]
             rnd_ft[3:5] = rnd[3:5]
             rnd_ft[8:] = rnd[8:]
+            
             return rnd_ft
 
         else:
@@ -92,6 +95,7 @@ class R3T:
                 if goal_bias_rnd < 0.3:
                     return self.goal_state + np.random.randn()*0.3
             return rnd
+
     
     # find q_near
     def nearest_neighbor(self, q_rand):
@@ -106,6 +110,8 @@ class R3T:
         x = node_near.state
         x_next, controls = self.solve_input_func(x, point_near, self.tau)
 
+        if x_next is None or point_near[0] < -1:
+            return None # not feasible
         state_id = hash(str(x_next))
 
         _, closest_state = self.state_tree.nearest(x_next)
