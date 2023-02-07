@@ -32,7 +32,7 @@ class Node:
         self.states = states
         self.u = u
         
-        self.parent = parent
+        self.parent:Node = parent
 
         self.cost = cost
         self.children = set()

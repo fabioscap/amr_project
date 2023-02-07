@@ -103,12 +103,14 @@ class Hopper1D:
         
         x = x_start
         controls = []
+        states = [x]
         for _ in range(iters):
             # print(f"{x} {u}")
             x = self.step(x, u)
             controls.append(u)
+            states.append(x)
         # print(f"start {x_start}, goal {x_c} reached {x}")
-        return x, controls
+        return states, controls
 
     # return q_new
     def extend_to(self, q_near, q_rand, tau):

@@ -37,14 +37,15 @@ class Pendulum:
         dq[0] = q[1]
         dq[1] = (1/self.I) * (t + u - self.b*q[1])
 
-        return dq
+        return dq.reshape(-1)
 
     # return next state (theta, theta_dot) after applying control u for time dt
     def step(self, q, u):
+        q = q.flatten()
         # euler: q_k+1 = q_k + f(q_k, u_k)*dt
         q_next = q + self.f(q,u)*self.dt
         q_next[0] = normalize(q_next[0])
-        return q_next
+        return q_next.reshape(-1)
     
     def calc_input(self, x_start, x_c, tau):
         
@@ -55,12 +56,11 @@ class Pendulum:
         A*= tau
         B*= tau
         c*= tau
-        u = np.linalg.pinv(B)@(x_c - x_start - A@x_start - c)
+        u = np.linalg.pinv(B)@(x_c.flatten() - x_start.flatten() - (A@x_start).flatten() - c.flatten())
 
         # due to linearization u might break the limits
         # so we clamp it
         # u = min(self.input_limits[1], max(self.input_limits[0], u))
-
         if u < self.input_limits[0]:
             u = self.input_limits[0]
         elif u > self.input_limits[1]:
@@ -68,12 +68,14 @@ class Pendulum:
         
         x = x_start
         controls = []
+        states = [x]
         for _ in range(iters):
             
-            x = self.step(x, u)
+            x = self.step(x, u).reshape(-1)
             controls.append(u)
+            states.append(x)
         
-        return x, controls
+        return states, controls
 
 
 
@@ -98,7 +100,7 @@ class Pendulum:
                 q_next = q_cand
                 u = control
                 min_d = d
-        return q_next, u
+        return q_next.reshape(-1), u
     
     def get_reachable_points(self, state, tau):
 
@@ -147,5 +149,5 @@ class Pendulum:
             state = state.reshape(-1,1) # shape (n,1)
             AH = convex_hull_of_point_and_polytope(state, AH)
 
-        return AH
+        return [], AH
 

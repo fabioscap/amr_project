@@ -6,7 +6,7 @@ import numpy as np
 
 class R3T:
     
-    def __init__(self, initial_state, goal_state, eps, state_bounds, solve_input_func, get_polytope_func, get_kpoints_func, tau,is_hopper_2d=False):
+    def __init__(self, initial_state, goal_state, eps, state_bounds, solve_input_func, get_polytope_func, get_kpoints_func, tau,is_hopper_2d=False, rewire=False):
         self.dim = initial_state.shape[0]
         self.initial_state = initial_state
         self.goal_state = goal_state
@@ -32,7 +32,7 @@ class R3T:
         
         # insert polytope
         states, polytope = self.get_polytope_func(initial_state, self.tau)
-
+        states = [initial_state] + states
         self.initial_node = Node(states)
         kpoints = self.get_kpoints_func(initial_state, self.tau)
         self.polytope_tree.insert(polytope, kpoints)
@@ -42,7 +42,7 @@ class R3T:
         self.polytope_id_to_node[hash(polytope)] = self.initial_node
         self.min_distance = np.inf
 
-
+        self.rewire = rewire
 
     def sample_state(self):
 
@@ -108,10 +108,11 @@ class R3T:
     def expand(self, node_near: Node, point_near,plt):
         
         x = node_near.state
-        x_next, controls = self.solve_input_func(x, point_near, self.tau)
+        states, controls = self.solve_input_func(x, point_near, self.tau)
 
-        if x_next is None or point_near[0] < -1:
+        if states is None:
             return None # not feasible
+        x_next = states[-1]
         state_id = hash(str(x_next))
 
         _, closest_state = self.state_tree.nearest(x_next)
@@ -122,11 +123,12 @@ class R3T:
         # add node to tree
         cost = sum([np.linalg.norm(u) for u in controls])
         
-
-
-
         # insert polytope
-        states, polytope = self.get_polytope_func(x_next, self.tau)
+        states_no_input, polytope = self.get_polytope_func(x_next, self.tau)
+        polytope_id = hash(polytope)
+
+        states = states + states_no_input
+
         node_next = Node(states, controls, node_near, cost=cost)
         new_child = node_near.add_child(node_next)
 
@@ -137,10 +139,68 @@ class R3T:
 
         # add link to node
         self.state_to_node[state_id] = node_next
-        self.polytope_id_to_node[hash(polytope)] = node_next
+        self.polytope_id_to_node[polytope_id] = node_next
+
+        if self.rewire:
+
+            # rewire 1
+            # given the new reachable set, find every other intersecting reachable set
+            # approximation using bboxes
+            box = utils.AABB.from_AH(polytope)
+            # candidate nodes
+            intersecting = self.polytope_tree.intersecting_boxes(box)
+
+            for idx in intersecting:
+                node = self.polytope_id_to_node[idx]
+                # try expanding in the direction of x_next
+                states, controls = self.solve_input_func(x_next, node.state, self.tau)
+                if states is None:
+                    continue # cannot reach x_next
+                if np.linalg.norm(states[-1]-x_next) > 1e-3:
+                    continue # did not reach x_next
+                c2g = sum([np.linalg.norm(u) for u in controls])
+                # TODO can we store the cumulative cost
+                if self.cumulative_cost(node_next) > self.cumulative_cost(node) + c2g:
+                    # rewire
+                    print("rewiring 1")
+                    # remove this node from old parent's children
+                    node_next.parent.children.remove(node_next)
+                    # set the new parent
+                    node_next.parent = node
+                    # add this node to the new parent's children
+                    node.add_children(node_next)
+
+            # rewire 2
+            # given the new reachable set, find all the nodes that fall into it
+            # approximation using bounding boxes
+            lu = np.concatenate((box.l, box.u))
+            candidate_nodes = [self.state_to_node[idx] \
+                               for idx in list(self.state_tree.state_idx.nearest(lu))]
+            for node in candidate_nodes:
+                q_i = node.state
+                # try expanding in the direction of q_i
+                states, controls = self.solve_input_func(q_i, x_next, self.tau)
+                if states is None:
+                    continue # cannot reach q_i
+                if np.linalg.norm(states[-1] - q_i) > 1e-3:
+                    continue # did not reach q_i
+                c2g = sum([np.linalg.norm(u) for u in controls])
+                if self.cumulative_cost(node) > self.cumulative_cost(node_next) + c2g:
+                    # rewire
+                    print("rewiring 2")
+                    node.parent.children.remove(node)
+                    node.parent = node_next
+                    node_next.add_child(node)
 
         return node_next
         
+    def cumulative_cost(self, node:Node):
+        cumulative_cost = node.cost
+        while node.parent is not None:
+            cumulative_cost += node.parent.cost
+            node = node.parent
+        return cumulative_cost
+
     def plan(self, max_nodes, plt=None):
 
         goal,valid_states= self.goal_check(self.initial_node, self.goal_state)
@@ -170,16 +230,6 @@ class R3T:
                 q_parent = node_next.parent.state
                 plt.scatter(q_next[0], q_next[1], c="blue")
                 plt.plot([q_parent[0], q_next[0]],[q_parent[1], q_next[1]], c="blue")
-                try:
-                    q_rand_plot.remove()
-                    q_near_plot.remove()
-                except:
-                    pass
-                q_rand_plot = plt.scatter(q_rand[0], q_rand[1], marker="x", c="green")
-                q_near_plot = plt.scatter(node_near.state[0], node_near.state[1], c="purple")
-                #plt.draw()
-                #plt.pause(0.05)
-                #input()
 
             goal,valid_states = self.goal_check(node_next, self.goal_state)
 
@@ -188,7 +238,6 @@ class R3T:
                 print(self.min_distance)
                 node_next.states =valid_states
                 #node_next.state=None
-                print(node_next.children)
                 
                 return True, node_next, n_nodes
         print("no goal")
@@ -287,7 +336,7 @@ class PolytopeTree:
         point_star, d_star = utils.distance_point_polytope(query, polytope_star)
         n_calls = 1
         
-        if d_star == 1e-9:
+        if d_star <= 1e-9:
             return polytope_star, d_star, point_star
 
         # box centered in query large 2d_star
@@ -329,6 +378,10 @@ class PolytopeTree:
         # print("n_calls",n_calls)
         # input()
         return polytope_star, d_star, point_star
+
+    def intersecting_boxes(self, box):
+
+        return self.aabb_tree.intersection(box)
 
 class AABBTree:
 

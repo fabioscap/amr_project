@@ -13,7 +13,6 @@ def normalize(angle):
 
 def plot_hopper_2d(root_node, plt):
     states = np.array(root_node.states)[:,:2]
-    print(states.shape)
     state = root_node.state[:2]
     plt.scatter(states[:-1,0], states[:-1,1],c="green",s=2)
     plt.plot(states[:,0], states[:,1], linewidth=0.5,c="green")
@@ -27,22 +26,33 @@ def plot_hopper_2d(root_node, plt):
         plot_hopper_2d(child, plt)
 
 
-def plot(root_node, plt, color='#6699CC', size=3, lw=1, th=100):
-    states = np.array(root_node.states).reshape(-1,2)
-    state = root_node.state
-    plt.scatter(states[:-1,0], states[:-1,1], c=color,s=size)
-    plt.plot(states[:,0], states[:,1],c=color, linewidth=lw)
+def plot(root_node, plt, int_color='#6699CC', last_color="blue", size=3, lw=1, th=100):
 
+    # get all the states
+    for state in root_node.states:
+        print(state.shape)
+
+    states = np.array(root_node.states).reshape(-1,2)
+
+    if states.shape[0] > 1:
+        # plot the intermediate states
+        plt.scatter(states[:-1,0], states[:-1,1], c=int_color,s=size)
+
+        # join them with lines
+        plt.plot(states[:,0], states[:,1],c=int_color, linewidth=lw)
+ 
+    #plot the last state
+    plt.scatter(states[-1,0], states[-1,1], c=last_color, s=size)
+    
     for child in root_node.children:
         
-        child_state = child.states[0]
-
-        norm = np.linalg.norm(state-child_state)
-
-        if norm < th and not len(child_state)==0:
-            plt.plot([state[0], child_state[0]], [state[1], child_state[1]], c=color, linewidth=lw)
-            plt.scatter(child_state[0], child_state[1], c=color, s=size)
-
+        child_first_state = child.states[0].reshape(-1)
+        print(states[-1].shape)
+        print(child_first_state.shape)
+        # join the node's last state with the child's chain of states
+        plt.plot([states[-1,0], child_first_state[0]], [states[-1,1], child_first_state[1]], c=last_color, linewidth=lw)
+        
+        # plot the child
         plot(child, plt)
 
 def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
@@ -126,10 +136,10 @@ class AABB: # axis aligned bounding box
 
             Gd = G[d,:]
 
-            x = qpsolvers.solve_qp(P=np.zeros((m_dim,m_dim)), q =  Gd, G=H, h=h, solver="osqp")
+            x = qpsolvers.solve_qp(P=np.zeros((m_dim,m_dim)), q =  Gd, G=H, h=h, solver="gurobi")
             L[d] = np.dot(Gd,x) + g[d] 
 
-            x = qpsolvers.solve_qp(P=np.zeros((m_dim,m_dim)), q = -Gd, G=H, h=h, solver="osqp")
+            x = qpsolvers.solve_qp(P=np.zeros((m_dim,m_dim)), q = -Gd, G=H, h=h, solver="gurobi")
             U[d] = np.dot(Gd,x) + g[d] 
         
         return AABB(L,U)
