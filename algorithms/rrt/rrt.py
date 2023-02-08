@@ -37,7 +37,7 @@ class Node:
         self.controls = controls
 
         self.state = self.states[-1,:] 
-
+        self.u     = self.controls[-1,:]
         self.parent:Node = parent
 
         self.cost = cost
@@ -82,7 +82,7 @@ class RRT:
 
         self.thr = thr # threshold to alias nodes
 
-        self.id_to_node = {}
+        self.id_to_node: dict[int, Node] = {}
 
 
     def add_node(self, states, controls = None, cost=None, parent:Node=None):
@@ -141,11 +141,11 @@ class RRT:
 
         return node_next
 
-    def plan(self, max_nodes):
+    def plan(self, max_nodes, plt=None):
         # add the first node with the initial state
         initial_state = self.model.initial_state
 
-        initial_node = self.add_node(initial_state)
+        self.initial_node = self.add_node(initial_state)
 
         goal, distance = self.model.goal_check(self.model.initial_state)
         if distance < self.min_distance:
@@ -157,7 +157,7 @@ class RRT:
         while self.n_nodes < max_nodes:
             t = time.time()
             if self.n_nodes%100 == 0:
-                print(f"n_nodes: {self.n_nodes}, d: {self.min_distance}, t: {t-start} sec")
+                print(f"n_nodes: {self.n_nodes}, d: {self.min_distance}, t: {t-start} sec", end='\r')
 
             x_rand = self.model.sample()
 
@@ -169,6 +169,26 @@ class RRT:
                 continue
 
             x_next = node_next.state
+
+            if plt != None: # debug
+                x_near = node_near.state
+                try: x_rand_plot.remove()
+                except: pass
+                try: x_next_plot.remove()
+                except: pass
+                try: x_near_plot.remove()
+                except: pass
+                x_rand_plot = plt.scatter(x_rand[0], x_rand[1], marker="x", color="green")
+                x_near_plot = plt.scatter(x_near[0], x_near[1], color="purple")
+                x_next_plot = plt.scatter(x_next[0], x_next[1], color="cyan")
+                plt.plot([x_near[0], x_next[0]], [x_near[1],x_next[1]], color="blue")
+                plt.draw()
+                plt.pause(0.01)
+                input()
+
+                plt.scatter(x_near[0], x_near[1], color="blue")
+                plt.scatter(x_next[0], x_next[1], color="blue")
+               
 
             goal, distance = self.model.goal_check(x_next)
             if distance < self.min_distance:
@@ -188,3 +208,6 @@ class RRT:
             plan = [node.parent] + plan
             node = node.parent
         return plan
+    
+    def nodes(self):
+        return self.id_to_node.values()

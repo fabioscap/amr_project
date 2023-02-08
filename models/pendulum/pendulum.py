@@ -5,13 +5,12 @@ from models.model import Model
 
 class Pendulum(Model):
     
-    motion_primitives = {1,0.0,-1}
-
     def __init__(self, m=1, m_l=0, l=0.5, g=9.81, b=0.1, 
                        initial_state = np.array([0,0]), 
                        goal_states   = [np.array([np.pi, 0.0]), np.array([-np.pi, 0])],
-                       input_limits = np.array([-1.0,1.0]).reshape(1,-1),
-                       dt=0.01):
+                       input_limits = np.array([-1,1]).reshape(1,-1),
+                       dt=0.01,
+                       eps_goal=0.05):
         super().__init__(initial_state, input_limits, dt)
 
         self.x_dim = 2
@@ -29,6 +28,12 @@ class Pendulum(Model):
         self.u_bar =  ( self.input_limits[:,0] + self.input_limits[:,1] )/2
         # self.u_diff = ( self.input_limits[1] - self.input_limits[0] )/2
 
+        self.motion_primitives = [self.input_limits[:,0],
+                                  self.u_bar,
+                                  self.input_limits[:,1]]
+
+
+        self.eps_goal = eps_goal
 
     def f(self, x:np.ndarray, u:np.ndarray):
         dx = np.zeros_like(x)
@@ -45,7 +50,7 @@ class Pendulum(Model):
         # euler: q_k+1 = q_k + f(q_k, u_k)*dt
         return x + self.f(x,u)*dt
     
-    def goal_check(self, x: np.ndarray, eps=0.05) -> tuple[bool, float]:
+    def goal_check(self, x: np.ndarray) -> tuple[bool, float]:
         
         min_dist = np.inf
         goal = False
@@ -55,7 +60,7 @@ class Pendulum(Model):
             if dist<min_dist:
                 min_dist = dist
 
-        if min_dist < eps:
+        if min_dist < self.eps_goal:
             goal = True
         return goal, min_dist
 
@@ -89,22 +94,49 @@ class Pendulum(Model):
 
         return rnd
     
+    # TODO either this or motion primitives
     def expand_toward(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
         # expand using pseudoinverse on linearized system
         A, B, c = self.linearize_at(x_near, self.u_bar, dt)
 
         u = np.linalg.pinv(B)@(x_rand - A@x_near - c)
 
+        if u < self.input_limits[0][0]: u[0] = self.input_limits[0][0]
+        if u > self.input_limits[0][1]: u[0] = self.input_limits[0][1]
 
         # the state has to be actually reachable so I step on the real environment with the systems's dt
         iters = int(dt//self.dt)
+
         states = np.zeros((iters,self.x_dim))
         controls = np.zeros((iters,self.u_dim))
         x = x_near
         for i in range(iters):
+
+            x = self.step(x, u, self.dt)
             states[i] = x
             controls[i] = u
-            x = self.step(x, u, self.dt)
         
         return states, controls
 
+
+    def get_reachable_sampled(self, x: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
+
+        n = len(self.motion_primitives)
+        iters = int(dt//self.dt)
+        states = []
+        controls = []
+
+        for u in self.motion_primitives:
+            s = np.zeros((iters,self.x_dim))
+            c = np.zeros((iters,self.u_dim))
+
+            x_r = x
+            for i in range(iters):
+                x_r = self.step(x_r, u, self.dt)
+                s[i] = x_r
+                c[i] = u
+
+            states.append(s)
+            controls.append(c)
+
+        return states, controls

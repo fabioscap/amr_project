@@ -67,11 +67,36 @@ def plot_hopper_2d():
     plt.show()
 
 def test_rrt_pendulum(seed=None):
-    if seed is not None: np.random.seed(seed)
-    p = Pendulum()
+    if seed is  None: seed = np.random.randint(0,10**6)
+    np.random.seed(seed)
+    p = Pendulum(dt=0.02)
 
-    planner = RRT(p, 0.1)
+    planner = RRT(p, 0.2)
 
-    planner.plan(80000)
+    goal, goal_node, n_nodes = planner.plan(max_nodes=10000, plt=None)
+    print(goal)
+    
+    import matplotlib.style as mplstyle
+    mplstyle.use(['dark_background', 'ggplot', 'fast'])
+    utils.plot(planner, plt, plot_all=True)
+    print(seed)
+    plt.show()
+
+def test_rgrrt_pendulum(seed=None):
+    if seed is  None: seed = np.random.randint(0,10**6)
+    np.random.seed(seed)
+    p = Pendulum(dt=0.02)
+
+    planner = RGRRT(p, 0.2)
+
+    goal, goal_node, n_nodes = planner.plan(max_nodes=10000, plt=None)
+    print("\n",goal)
+    
+    import matplotlib.style as mplstyle
+    mplstyle.use(['dark_background', 'ggplot', 'fast'])
+    utils.plot(planner, plt, plot_all=True)
+    print(seed)
+    plt.show()
 
 test_rrt_pendulum()
+test_rgrrt_pendulum()

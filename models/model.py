@@ -26,3 +26,9 @@ class Model:
                                                                         np.ndarray,  # B, shape (x_dim, u_dim)
                                                                         np.ndarray]: # c, shape (x_dim, )
         raise NotImplementedError()
+    
+    def get_reachable_sampled(self, x:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
+        # returns a set of sampled points associated with the respective inputs
+        # these points are generatet by stepping in the dynamics starting from x and applying
+        # a predefined discrete set of inputs
+        raise NotImplementedError()
