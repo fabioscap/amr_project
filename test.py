@@ -374,7 +374,7 @@ def test_r3t_hopper_2d():
     
     # get seed
     seed = np.random.randint(0, 10**6)
-    seed = 861006 
+    seed = 84270 
     np.random.seed(seed)
     print(seed)
      #np.random.seed(1834913)
@@ -421,8 +421,11 @@ def test_r3t_hopper_2d():
             for state in states[:-1]:
                 X = state[:5]
                 if i % 3 ==0:
+                    plt.gca().remove()
                     # plot
                     hopper_plot(X,plt, xlim=[-2,17], ylim=[0,5])
+                    plt.draw()
+                    plt.pause(0.01)
                 i+= 1
             X = states[-1][:5]
             hopper_plot(X,plt, xlim=[-2,17], ylim=[-0.4,5])
@@ -444,6 +447,6 @@ def test_r3t_hopper_2d():
 
 
 #test_r3t_hopper_1d()
-test_r3t_pendulum()
+#test_r3t_pendulum()
 #plot_hopper_1D()
-#test_r3t_hopper_2d()
+test_r3t_hopper_2d()
