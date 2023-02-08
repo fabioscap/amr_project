@@ -343,11 +343,20 @@ def test_r3t_hopper_1d():
         print("nodes", nodes)
         print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
         if success:
-            goal_node.states.reverse()
-            plan = planner.get_plan(goal_node, plt=plt)
-            #plt.scatter(goal_node.state[0], goal_node.state[1],s = 5, marker="x", c="green")
-            #utils.plot(planner.initial_node, plt=plt)
-            print("cost=",planner.cumulative_cost(goal_node))
+            i = 0
+            plt.figure()
+            for states in plan:
+                for state in states[:-1]:
+                    X = [0,0,0,0,0]
+                    X[1]= state[0]-1
+                    X[4] = 2
+                    if i % 10 ==0:
+                        plt.gca().remove()
+                        hopper_plot(X,plt, xlim=[-2,2], ylim=[0,5],alpha=1.0)
+                        
+                        plt.draw()
+                        plt.pause(0.01)
+                    i+= 1
 
         elapsed = time.time()-start
         print(f"{elapsed} seconds")
@@ -379,7 +388,7 @@ def test_r3t_hopper_2d():
     
     # get seed
     seed = np.random.randint(0, 10**6)
-    #seed = 861006 
+    seed = 861006 
     np.random.seed(seed)
     print(seed)
      #np.random.seed(1834913)
@@ -426,8 +435,11 @@ def test_r3t_hopper_2d():
             for state in states[:-1]:
                 X = state[:5]
                 if i % 3 ==0:
+                    plt.gca().remove()
                     # plot
                     hopper_plot(X,plt, xlim=[-2,17], ylim=[0,5])
+                    plt.draw()
+                    plt.pause(0.01)
                 i+= 1
             X = states[-1][:5]
             hopper_plot(X,plt, xlim=[-2,17], ylim=[-0.4,5])
@@ -450,5 +462,6 @@ def test_r3t_hopper_2d():
 
 #test_r3t_pendulum()
 #test_r3t_hopper_1d()
-test_r3t_hopper_2d()
+test_r3t_pendulum()
 #plot_hopper_1D()
+#test_r3t_hopper_2d()
