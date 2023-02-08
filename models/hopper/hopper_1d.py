@@ -1,8 +1,9 @@
 import numpy as np
 import pypolycontain as pp
 from utils import convex_hull_of_point_and_polytope
+from models.model import Model
 
-class Hopper1D:
+class Hopper1D(Model):
 
     FLIGHT = 0
     CONTACT = 1
@@ -10,33 +11,39 @@ class Hopper1D:
 
     modes = {FLIGHT, CONTACT, BOUNCE}
 
-    def __init__(self, m=1, l=1, p=0.1, b=0.9, g=9.8, f_max=200., epsilon = 1e-7, dt=0.001):
+    def __init__(self, m=1, l=1, p=0.1, b=0.9, g=9.8, 
+                 initial_state=np.array([2.0,0.0]), 
+                 input_limits =np.array([0,80]).reshape(1,-1),
+                 goal_states  =[np.array([3.0, 0.0])],
+                 eps_goal = 0.1,
+                 epsilon = 1e-7, 
+                 dt=0.001):
+        super().__init__(initial_state, input_limits, dt)
+
+        self.x_dim = 2
+        self.u_dim = 1
+
         self.m = m
         self.l = l
         self.p = p
         self.b = b
         self.g = g
-        self.f_max = f_max
+
         self.epsilon = epsilon
         
         self.dt = dt
 
         self.u_dim = 1
 
-        self.input_limits = np.array([0,f_max])
 
-        self.motion_primitives = {0, f_max/2, f_max}
+        self.u_bar =  ( self.input_limits[:,0] + self.input_limits[:,1] )/2
 
-        # parameter sanity checks
-        assert(self.m>0)
-        assert(self.l>0)
-        assert(self.p>0)
-        assert(self.g>0)
-        
-        assert(self.f_max >= 0)
+        self.motion_primitives = [self.input_limits[:,0],
+                                  self.u_bar,
+                                  self.input_limits[:,1]]
 
-        self.u_bar = (self.input_limits[1] + self.input_limits[0]) / 2.
-        self.u_diff = (self.input_limits[1] - self.input_limits[0]) / 2.
+        self.goal_states = goal_states
+        self.eps_goal    = eps_goal
 
     def f_flight(self, x):
         # not actuated
@@ -44,9 +51,7 @@ class Hopper1D:
         return dx
 
     def f_contact(self, x, u):
-        if isinstance(u, np.ndarray):
-            u = u[0]
-        dx = np.asarray([x[1], u/self.m-self.g])
+        dx = np.asarray([x[1], u[0]/self.m-self.g])
         return dx
     
     def f_bounce(self, x):
@@ -59,82 +64,59 @@ class Hopper1D:
     def check_bounce(self, x): return x[0]<=self.l
 
     def get_mode(self, x):
-        modes = []
+        # modes are mutually exclusive
         if self.check_flight(x):
-            modes.append(self.FLIGHT)
-        if self.check_contact(x):
-            modes.append(self.CONTACT)
-        if self.check_bounce(x):
-            modes.append(self.BOUNCE)
+            return self.FLIGHT
+        elif self.check_contact(x):
+            return self.CONTACT
+        elif self.check_bounce(x):
+            return self.BOUNCE
+        else:
+            raise Exception()
 
-        return modes
        
 
     # return next state (x, x_dot) after applying control u for time dt
-    def step(self, x, u):
-        modes = self.get_mode(x)
-        assert len(modes) == 1
-        if   modes[0] == Hopper1D.FLIGHT:
+    def step(self, x, u, dt):
+        mode = self.get_mode(x)
+        if   mode == Hopper1D.FLIGHT:
             # print("flight")
-            x_next = x + self.f_flight(x)*self.dt
-        elif modes[0] == Hopper1D.CONTACT:
-            x_next = x + self.f_contact(x,u)*self.dt
-        elif modes[0] == Hopper1D.BOUNCE:
+            x_next = x + self.f_flight(x)*dt
+        elif mode == Hopper1D.CONTACT:
+            x_next = x + self.f_contact(x,u)*dt
+        elif mode == Hopper1D.BOUNCE:
             # print("bounce")
             x_next = self.f_bounce(x)
         else:
             raise Exception()
         return x_next
 
-    def calc_input(self, x_start, x_c, tau):
-        iters = int(tau // self.dt)
+    def goal_check(self, x:np.ndarray)->tuple[bool, float]:      
+        min_dist = np.inf
+        goal = False
 
-        A, B, c = self.linearize_at(x_start, self.u_bar, self.get_mode(x_start)[0], tau)
-        u = np.linalg.pinv(B)@(x_c - x_start - A@x_start - c)
+        for goal_state in self.goal_states:
+            dist = np.linalg.norm(x-goal_state)
+            if dist<min_dist:
+                min_dist = dist
 
-        # due to linearization u might break the limits
-        # so we clamp it
-        # u = min(self.input_limits[1], max(self.input_limits[0], u))
-
-        if u < self.input_limits[0]:
-            u = self.input_limits[0]
-        elif u > self.input_limits[1]:
-            u = self.input_limits[1]
-        
-        x = x_start
-        controls = []
-        states = [x]
-        for _ in range(iters):
-            # print(f"{x} {u}")
-            x = self.step(x, u)
-            controls.append(u)
-            states.append(x)
-        # print(f"start {x_start}, goal {x_c} reached {x}")
-        return states, controls
-
-    # return q_new
-    def extend_to(self, q_near, q_rand, tau):
-        raise NotImplementedError
+        if min_dist < self.eps_goal:
+            goal = True
+        return goal, min_dist
     
-    def get_reachable_points(self, state, tau):
-        
-        states = []
-        controls = []
+    def sample(self, **kwargs)->np.ndarray:
+        # they use gaussian mixture sampling
+        rnd = np.random.rand(2)
+        rnd[0] = rnd[0]*5+0.5
+        rnd[1] = (rnd[1]-0.5)*2*10
 
-        for control in self.motion_primitives:
-            T = 0
-            cand = state
-            while T<tau:
-                cand = self.step(cand, control)
-                T += self.dt
-            states.append(cand)
-            controls.append(control)
+        return rnd
 
-        return states, controls
-
-        
-    def linearize_at(self, x, u, mode, dt):
-        # the dynamics are already linear
+    def expand_toward(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
+        pass
+    
+    def linearize_at(self, x:np.ndarray, u:np.ndarray, dt:float, mode=None):
+        # no dependence on x,u as expected (linear dynamics)
         if mode == self.FLIGHT:
             A = (np.array([[0,1],[0,0]])*dt + np.eye(2))
             B = np.zeros((2,1))*dt
@@ -149,50 +131,29 @@ class Hopper1D:
             A = np.array([[0, 0],[0,-self.b]])
             c = np.array([self.l+self.epsilon, 0.0])
 
-        return A,B,c
-
-    
-    def get_reachable_AH(self, state, tau, convex_hull=True):
-        available_modes = self.get_mode(state)
-
-        A,B,c = self.linearize_at(state, self.u_bar, available_modes[0], tau)
-
-        states = [state]
-        while np.all(B == 0.):
-
-            state = self.step(state, None)
-            states.append(state)
-            available_modes = self.get_mode(state)
-            A,B,c = self.linearize_at(state, self.u_bar, available_modes[0], tau)
-        
-        # assert np.any(B != 0)
-        
-
-        polytopes_list = []
-        for mode in self.modes:
-            
-            if mode not in available_modes:
-                continue
-   
-            A,B,c = self.linearize_at(state, self.u_bar, mode, tau)   
-
-            x = np.ndarray.flatten(A@state) + np.ndarray.flatten(B*self.u_bar) + c
-
-            assert(len(x)==len(state))
-            G = np.atleast_2d(B*self.u_diff)
-
-            AH = pp.to_AH_polytope(pp.zonotope(G,x))
-            if convex_hull:
-                state = state.reshape(-1,1) # shape (n,1)
-                AH = convex_hull_of_point_and_polytope(state, AH)
-
-            polytopes_list.append(AH)
-
-        if len(polytopes_list) == 1:
-            return states, polytopes_list[0]
         else:
-            print(polytopes_list)
-            print(self.get_mode(state))
-            raise NotImplementedError()
-            return np.asarray(polytopes_list)
+            raise Exception()
+        
+        return A,B,c
+    
+    def get_reachable_sampled(self, x:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
+        # TODO simulate until you can apply input (in this case until CONTACT)
+        iters = int(dt//self.dt)
+        states = []
+        controls = []
+
+        for u in self.motion_primitives:
+            s = np.zeros((iters,self.x_dim))
+            c = np.zeros((iters,self.u_dim))
+
+            x_r = x
+            for i in range(iters):
+                x_r = self.step(x_r, u, self.dt)
+                s[i] = x_r
+                c[i] = u
+
+            states.append(s)
+            controls.append(c)
+
+        return states, controls
 

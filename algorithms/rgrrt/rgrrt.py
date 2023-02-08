@@ -36,10 +36,9 @@ class RGRRT:
         if controls is None:
             cost = 0
             controls = np.empty((1,self.u_dim))
-        elif len(controls.shape) == 0:
-            controls = controls.reshape(1,-1)
+
         if cost is None:
-            cost = np.sum( np.linalg.norm(controls, axis=1) ) # sum the cost of every control
+            cost = np.linalg.norm(controls) 
         node = Node(states, controls, parent, cost)
 
         # manage the parent's children
@@ -93,9 +92,8 @@ class RGRRT:
             # there is already a node at this location
             # TODO consider rewiring if the cost is less
             return None
-
-
-        cost = np.sum( np.linalg.norm(controls, axis=1) )
+        
+        cost = np.sum( np.linalg.norm(controls) )
 
         # add node to tree
         node_next = self.add_node(states, controls, cost, node_near)

@@ -10,10 +10,18 @@ class Model:
         self.input_limits = input_limits
         self.dt = dt
 
+
+        # TODO either this or motion primitives
+        # both rely on distance metric which is not the best with hybrid systems
+        # samples looks like the best because it does not do linearization thus it can handle
+        # mode switches. It does discretize input space however...
+        self.expand_toward = self.expand_toward_samples
+        # self.expand_toward = self.expand_toward_pinv
+
     def step(self, x: np.ndarray, u: np.ndarray, dt: float)->np.ndarray:
         raise NotImplementedError()
 
-    def goal_check(self, x:np.ndarray, eps:float)->tuple[bool, float]:
+    def goal_check(self, x:np.ndarray)->tuple[bool, float]:
         raise NotImplementedError()
     
     def sample(self, **kwargs)->np.ndarray:
@@ -31,4 +39,12 @@ class Model:
         # returns a set of sampled points associated with the respective inputs
         # these points are generatet by stepping in the dynamics starting from x and applying
         # a predefined discrete set of inputs
+        raise NotImplementedError()
+    
+
+
+
+    def expand_toward_pinv(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
+        raise NotImplementedError()
+    def expand_toward_samples(self, x_near: np.ndarray, x_rand: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
         raise NotImplementedError()

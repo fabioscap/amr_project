@@ -34,10 +34,9 @@ class Node:
                        cost=0.):
 
         self.states = states
-        self.controls = controls
+        self.u = controls
 
         self.state = self.states[-1,:] 
-        self.u     = self.controls[-1,:]
         self.parent:Node = parent
 
         self.cost = cost
@@ -57,7 +56,7 @@ class Node:
             return True
 
     def __hash__(self) -> int:
-        return hash(str(np.hstack((self.states.flatten(), self.controls.flatten()))))
+        return hash(str(np.hstack((self.states.flatten(), self.u.flatten()))))
     
     def __ex__(self, __o: object) -> bool:
         return self.__hash__() == __o.__hash__()
@@ -92,10 +91,9 @@ class RRT:
         if controls is None:
             cost = 0
             controls = np.empty((1,self.u_dim))
-        elif len(controls.shape) == 0:
-            controls = controls.reshape(1,-1)
+
         if cost is None:
-            cost = np.sum( np.linalg.norm(controls, axis=1) ) # sum the cost of every control
+            cost = np.sum( np.linalg.norm(controls) ) # sum the cost of every control
         node = Node(states, controls, parent, cost)
 
         # manage the parent's children
@@ -134,7 +132,7 @@ class RRT:
             return None
 
 
-        cost = np.sum( np.linalg.norm(controls, axis=1) )
+        cost = np.sum( np.linalg.norm(controls) )
 
         # add node to tree
         node_next = self.add_node(states, controls, cost, node_near)

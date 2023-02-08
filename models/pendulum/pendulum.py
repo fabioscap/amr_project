@@ -87,15 +87,19 @@ class Pendulum(Model):
         return A, B, c
 
     def sample(self, **kwargs) -> np.ndarray:
-        rnd = (np.random.rand(2) -0.5)*2 # range between -1 and 1
+        goal_bias = np.random.rand(1)
+        if goal_bias < 0.3:
+            if goal_bias < 0.15: return self.goal_states[0]
+            else:                return self.goal_states[1]
+        else:
+            rnd = (np.random.rand(2) -0.5)*2 # range between -1 and 1
 
-        rnd[0]*= 3*np.pi/2
-        rnd[1]*= 10
+            rnd[0]*= 3*np.pi/2
+            rnd[1]*= 10
 
-        return rnd
+            return rnd
     
-    # TODO either this or motion primitives
-    def expand_toward(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
+    def expand_toward_pinv(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
         # expand using pseudoinverse on linearized system
         A, B, c = self.linearize_at(x_near, self.u_bar, dt)
 
@@ -108,35 +112,46 @@ class Pendulum(Model):
         iters = int(dt//self.dt)
 
         states = np.zeros((iters,self.x_dim))
-        controls = np.zeros((iters,self.u_dim))
+        controls = u
         x = x_near
         for i in range(iters):
 
             x = self.step(x, u, self.dt)
             states[i] = x
-            controls[i] = u
         
         return states, controls
+
+    def expand_toward_samples(self, x_near: np.ndarray, x_rand: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
+        states, controls = self.get_reachable_sampled(x_near, dt)
+        
+        min_distance = np.inf
+        closest_state = None
+        closest_u = None
+
+        for i in range(len(controls)):
+            delta = np.linalg.norm(x_rand-states[i][-1])
+            if delta < min_distance:
+                min_distance = delta
+                closest_state = states[i]
+                closest_u = controls[i]
+
+        return closest_state, closest_u
 
 
     def get_reachable_sampled(self, x: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
 
-        n = len(self.motion_primitives)
         iters = int(dt//self.dt)
         states = []
         controls = []
 
         for u in self.motion_primitives:
             s = np.zeros((iters,self.x_dim))
-            c = np.zeros((iters,self.u_dim))
 
             x_r = x
             for i in range(iters):
                 x_r = self.step(x_r, u, self.dt)
                 s[i] = x_r
-                c[i] = u
 
             states.append(s)
-            controls.append(c)
-
+            controls.append(u)
         return states, controls
