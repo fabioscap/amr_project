@@ -339,10 +339,20 @@ def test_r3t_hopper_1d():
         print("nodes", nodes)
         print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
         if success:
-            goal_node.states.reverse()
-            #plan = planner.get_plan(goal_node, plt=plt)
-            #plt.scatter(goal_node.state[0], goal_node.state[1],s = 5, marker="x", c="green")
-            #utils.plot(planner.initial_node, plt=plt)
+            i = 0
+            plt.figure()
+            for states in plan:
+                for state in states[:-1]:
+                    X = [0,0,0,0,0]
+                    X[1]= state[0]-1
+                    X[4] = 2
+                    if i % 10 ==0:
+                        plt.gca().remove()
+                        hopper_plot(X,plt, xlim=[-2,2], ylim=[0,5],alpha=1.0)
+                        
+                        plt.draw()
+                        plt.pause(0.01)
+                    i+= 1
 
         elapsed = time.time()-start
         print(f"{elapsed} seconds")
