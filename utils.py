@@ -28,9 +28,6 @@ def plot_hopper_2d(root_node, plt):
 
 def plot(root_node, plt, int_color='#6699CC', last_color="blue", size=3, lw=1, th=100):
 
-    # get all the states
-    for state in root_node.states:
-        print(state.shape)
 
     states = np.array(root_node.states).reshape(-1,2)
 
@@ -47,8 +44,7 @@ def plot(root_node, plt, int_color='#6699CC', last_color="blue", size=3, lw=1, t
     for child in root_node.children:
         
         child_first_state = child.states[0].reshape(-1)
-        print(states[-1].shape)
-        print(child_first_state.shape)
+
         # join the node's last state with the child's chain of states
         plt.plot([states[-1,0], child_first_state[0]], [states[-1,1], child_first_state[1]], c=last_color, linewidth=lw)
         

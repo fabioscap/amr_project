@@ -71,26 +71,28 @@ class Hopper1D:
        
 
     # return next state (x, x_dot) after applying control u for time dt
-    def step(self, x, u):
-        modes = self.get_mode(x)
-        assert len(modes) == 1
-        if   modes[0] == Hopper1D.FLIGHT:
+    def step(self, x, u, mode=None, dt = None):
+        if mode == None:
+            mode = self.get_mode(x)[0]
+        if dt == None:
+            dt = self.dt
+        if   mode == Hopper1D.FLIGHT:
             # print("flight")
-            x_next = x + self.f_flight(x)*self.dt
-        elif modes[0] == Hopper1D.CONTACT:
-            x_next = x + self.f_contact(x,u)*self.dt
-        elif modes[0] == Hopper1D.BOUNCE:
-            # print("bounce")
+            x_next = x + self.f_flight(x)*dt
+        elif mode == Hopper1D.CONTACT:
+            x_next = x + self.f_contact(x,u)*dt
+        elif mode == Hopper1D.BOUNCE:
             x_next = self.f_bounce(x)
         else:
             raise Exception()
         return x_next
 
     def calc_input(self, x_start, x_c, tau):
-        iters = int(tau // self.dt)
+
 
         A, B, c = self.linearize_at(x_start, self.u_bar, self.get_mode(x_start)[0], tau)
-        u = np.linalg.pinv(B)@(x_c - x_start - A@x_start - c)
+
+        u =  np.linalg.pinv(B)@(x_c - A@x_start - c)
 
         # due to linearization u might break the limits
         # so we clamp it
@@ -103,7 +105,8 @@ class Hopper1D:
         
         x = x_start
         controls = []
-        states = [x]
+        states = []
+        iters = int(tau // self.dt)
         for _ in range(iters):
             # print(f"{x} {u}")
             x = self.step(x, u)
@@ -138,17 +141,18 @@ class Hopper1D:
         if mode == self.FLIGHT:
             A = (np.array([[0,1],[0,0]])*dt + np.eye(2))
             B = np.zeros((2,1))*dt
-            c = np.array([0, -self.g])*dt
+            c = self.step(x,u,Hopper1D.FLIGHT, dt).reshape(-1) - (A@x).reshape(-1) - (B*u).reshape(-1)
         elif mode == self.CONTACT:
             A = (np.array([[0,1],[0,0]])*dt + np.eye(2))
             B = (np.array([[0, 1/self.m]])*dt).reshape(2,1)
             c = np.array([0, -self.g])*dt
+
         elif mode == self.BOUNCE:
             # xdot_k+1 = -b xdot_k
             B = np.array([[0,0]]).reshape(2,1)
             A = np.array([[0, 0],[0,-self.b]])
-            c = np.array([self.l+self.epsilon, 0.0])
-
+            c_ = np.array([self.l+self.epsilon, 0.0])
+            c = self.step(x,u,Hopper1D.BOUNCE, dt).reshape(-1) - (A@x).reshape(-1) - (B*u).reshape(-1)
         return A,B,c
 
     

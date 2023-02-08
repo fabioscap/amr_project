@@ -32,6 +32,7 @@ class R3T:
         
         # insert polytope
         states, polytope = self.get_polytope_func(initial_state, self.tau)
+
         states = [initial_state] + states
         self.initial_node = Node(states)
         kpoints = self.get_kpoints_func(initial_state, self.tau)
@@ -142,7 +143,7 @@ class R3T:
         self.polytope_id_to_node[polytope_id] = node_next
 
         if self.rewire:
-
+            x_next = states[-1]
             # rewire 1
             # given the new reachable set, find every other intersecting reachable set
             # approximation using bboxes
@@ -153,10 +154,13 @@ class R3T:
             for idx in intersecting:
                 node = self.polytope_id_to_node[idx]
                 # try expanding in the direction of x_next
-                states, controls = self.solve_input_func(x_next, node.state, self.tau)
+                states, controls = self.solve_input_func(node.state, x_next, self.tau)
+
                 if states is None:
                     continue # cannot reach x_next
-                if np.linalg.norm(states[-1]-x_next) > 1e-3:
+                print(states[-1],"\n",x_next)
+                print(np.linalg.norm(states[-1]-x_next))
+                if np.linalg.norm(states[-1]-x_next) > 0.1:
                     continue # did not reach x_next
                 c2g = sum([np.linalg.norm(u) for u in controls])
                 # TODO can we store the cumulative cost
@@ -168,7 +172,7 @@ class R3T:
                     # set the new parent
                     node_next.parent = node
                     # add this node to the new parent's children
-                    node.add_children(node_next)
+                    node.add_child(node_next)
 
             # rewire 2
             # given the new reachable set, find all the nodes that fall into it
@@ -187,7 +191,7 @@ class R3T:
                 c2g = sum([np.linalg.norm(u) for u in controls])
                 if self.cumulative_cost(node) > self.cumulative_cost(node_next) + c2g:
                     # rewire
-                    print("rewiring 2")
+                    #print("rewiring 2")
                     node.parent.children.remove(node)
                     node.parent = node_next
                     node_next.add_child(node)
@@ -328,7 +332,7 @@ class PolytopeTree:
 
     def nearest(self, query):
         #AABB query
-
+        #polytope_star = self.aabb_tree.nearest(query)
         # polytope relative to closest kpoint
         id_star = self.kpoints_tree.nearest(query)
         polytope_star = self.polytope_id_to_polytope[id_star]
@@ -412,6 +416,10 @@ class AABBTree:
         intersections = set(self.AABB_idx.intersection(lu))
 
         return intersections
+
+    def nearest(self, query:np.ndarray):
+        nearest_id = list(self.AABB_idx.nearest(query, num_results=1))[0]
+        return self.AABB_to_polytope[nearest_id]
 
     # test
     def insert_bbox(self, bbox_id, bbox):

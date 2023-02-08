@@ -190,8 +190,11 @@ def test_bbox_tree():
 
 def test_r3t_pendulum():
     start = time.time()
-    np.random.seed(1834913)
-    p = Pendulum(dt=0.01)
+    seed = np.random.randint(0, 10**6)
+    seed = 878319
+    np.random.seed(seed)
+    print(seed)
+    p = Pendulum(dt=0.05)
 
     q0 = np.zeros(2)
     q_goal = np.array([np.pi, 0])
@@ -210,7 +213,7 @@ def test_r3t_pendulum():
                   get_kpoints_func=p.get_reachable_points, 
                   get_polytope_func=p.get_reachable_AH,
                   tau=0.2, rewire=True)
-    success, goal_node, nodes = planner.plan(max_nodes=2000,plt=None)
+    success, goal_node, nodes = planner.plan(max_nodes=300,plt=None)
     print("nodes", nodes)
     print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
     elapsed = time.time()-start
@@ -227,6 +230,7 @@ def test_r3t_pendulum():
         plan = planner.get_plan(goal_node, plt=plt)
         plt.scatter(goal_node.state[0], goal_node.state[1], marker="x", c="green")
         print("COST", planner.cumulative_cost(goal_node))
+        print(seed)
         pass
 
     
@@ -307,7 +311,7 @@ def test_rgrrt_hopper_1d():
 def test_r3t_hopper_1d():
 
     seed = np.random.randint(0, 10**6)
-    seed = 258498
+    
     np.random.seed(seed)
     print(seed)
     p = Hopper1D(dt=0.001)
@@ -327,7 +331,7 @@ def test_r3t_hopper_1d():
                   solve_input_func=p.calc_input,
                   get_kpoints_func=p.get_reachable_points, 
                   get_polytope_func=p.get_reachable_AH,
-                  tau=0.05,rewire=True)
+                  tau=0.01,rewire=False)
     start = time.time() 
     try:
 
@@ -340,9 +344,10 @@ def test_r3t_hopper_1d():
         print("polytopes",len(planner.polytope_tree.polytope_id_to_polytope.values()))
         if success:
             goal_node.states.reverse()
-            #plan = planner.get_plan(goal_node, plt=plt)
+            plan = planner.get_plan(goal_node, plt=plt)
             #plt.scatter(goal_node.state[0], goal_node.state[1],s = 5, marker="x", c="green")
             #utils.plot(planner.initial_node, plt=plt)
+            print("cost=",planner.cumulative_cost(goal_node))
 
         elapsed = time.time()-start
         print(f"{elapsed} seconds")
@@ -374,14 +379,14 @@ def test_r3t_hopper_2d():
     
     # get seed
     seed = np.random.randint(0, 10**6)
-    seed = 861006 
+    #seed = 861006 
     np.random.seed(seed)
     print(seed)
      #np.random.seed(1834913)
     p = Hopper2D(dt=0.005)
 
     q0 = np.asarray([0., 1., 0, 0, 1.5, 0, 0., 0., 0., 0., 0.])
-    q_goal = np.asarray([10,1.,0.,0.,1.5,0.,0.,0.,0.,0., 0.])
+    q_goal = np.asarray([6,1.,0.,0.,1.5,0.,0.,0.,0.,0., 0.])
 
     plt.scatter(q0[0], q0[1], s=5, c="red")
     plt.scatter(q_goal[0], q_goal[1], s=5,marker="x", c="red")
@@ -427,6 +432,7 @@ def test_r3t_hopper_2d():
             X = states[-1][:5]
             hopper_plot(X,plt, xlim=[-2,17], ylim=[-0.4,5])
         print(seed)
+        print("cost=",planner.cumulative_cost(goal_node))
         #plt.scatter(goal_node.state[0], goal_node.state[1],s = 5, marker="x", c="green")
         #utils.plot(planner.initial_node, plt=plt)
 
@@ -442,8 +448,7 @@ def test_r3t_hopper_2d():
 #test_point_to_polytope()
 # test_AH_to_bbox()
 
-
+#test_r3t_pendulum()
 #test_r3t_hopper_1d()
-test_r3t_pendulum()
+test_r3t_hopper_2d()
 #plot_hopper_1D()
-#test_r3t_hopper_2d()
