@@ -3,10 +3,10 @@ from matplotlib.patches import Polygon,Rectangle
 from scipy.spatial import ConvexHull
 from lib.operations import AH_polytope_vertices 
 
-
 from scipy import sparse
 import pypolycontain as pp
 import qpsolvers
+
 
 def normalize(angle):
     return np.arctan2(np.sin(angle), np.cos(angle))
@@ -26,35 +26,51 @@ def plot_hopper_2d(root_node, plt):
         plot_hopper_2d(child, plt)
 
 
-def plot(root_node, plt, int_color='#6699CC', last_color="blue", size=3, lw=1, th=100):
+def plot(planner, plt,int_color='pink', last_color="red", size=3, lw=1, th=100, plot_all=True):
+    # speed up plots by plotting all at once
+    from matplotlib import collections as mc
+    fig, ax = plt.subplots()
 
-    # get all the states
-    for state in root_node.states:
-        print(state.shape)
+    lines = []
+    lines_int = []
 
-    states = np.array(root_node.states).reshape(-1,2)
+    scatters = []
+    scatters_int = []
 
-    if states.shape[0] > 1:
-        # plot the intermediate states
-        plt.scatter(states[:-1,0], states[:-1,1], c=int_color,s=size)
+    for node in planner.nodes():
+        # always plot the last node
+        scatters.append(node.state)
 
-        # join them with lines
-        plt.plot(states[:,0], states[:,1],c=int_color, linewidth=lw)
- 
-    #plot the last state
-    plt.scatter(states[-1,0], states[-1,1], c=last_color, s=size)
+        # if it has a parent, add a line from this node's state 
+        # to the parent's last
+        if node.parent is not None:
+            x_from = node.parent.state
+            x_to   = node.states[0] if plot_all else node.state
+            lines.append([x_from,x_to])
+
+        # if plot_all, also plot intermediate states and lines in between them
+        n_int = len(node.states)
+        if plot_all:
+            for i in range(n_int-1): # I already plotted the last state in any case
+                scatters_int.append(node.states[i])
+                lines_int.append([node.states[i], node.states[i+1]])
+        
+    scatters = np.array(scatters)
+    lines = np.array(lines)
+    lc = mc.LineCollection(lines, color=int_color,zorder=-1,linewidth=lw)
+
+    if plot_all and len(scatters_int) > 0 :
+        scatters_int = np.array(scatters_int)
+        plt.scatter(scatters_int[:,0], scatters_int[:,1], color=int_color, s=size*3/5)
+        lines_int = np.array(lines_int)
+        lc_int = mc.LineCollection(lines_int, color=int_color,zorder=-2, linewidth=lw)
+        ax.add_collection(lc_int)
+
+
+
+    ax.add_collection(lc)
+    plt.scatter(scatters[:,0], scatters[:,1], color=last_color, s=size)
     
-    for child in root_node.children:
-        
-        child_first_state = child.states[0].reshape(-1)
-        print(states[-1].shape)
-        print(child_first_state.shape)
-        # join the node's last state with the child's chain of states
-        plt.plot([states[-1,0], child_first_state[0]], [states[-1,1], child_first_state[1]], c=last_color, linewidth=lw)
-        
-        # plot the child
-        plot(child, plt)
-
 def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
     n_dim = query.reshape(-1).shape[0]
 
