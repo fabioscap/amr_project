@@ -26,10 +26,10 @@ def plot_hopper_2d(root_node, plt):
         plot_hopper_2d(child, plt)
 
 
-def plot(planner, plt,int_color='pink', last_color="red", size=5, lw=1, th=100, plot_all=True):
+def plot(nodes, ax,int_color='pink', last_color="red", size=5, lw=1, th=100, plot_all=True, zorder=0):
     # speed up plots by plotting all at once
     from matplotlib import collections as mc
-    fig, ax = plt.subplots()
+
 
     lines = []
     lines_int = []
@@ -37,7 +37,7 @@ def plot(planner, plt,int_color='pink', last_color="red", size=5, lw=1, th=100, 
     scatters = []
     scatters_int = []
 
-    for node in planner.nodes():
+    for node in nodes:
         # always plot the last node
         scatters.append(node.state)
 
@@ -57,19 +57,19 @@ def plot(planner, plt,int_color='pink', last_color="red", size=5, lw=1, th=100, 
         
     scatters = np.array(scatters)
     lines = np.array(lines)
-    lc = mc.LineCollection(lines, color=last_color,zorder=2,linewidth=lw)
+    lc = mc.LineCollection(lines, color=last_color,zorder=zorder+2,linewidth=lw)
 
     if plot_all and len(scatters_int) > 0 :
         scatters_int = np.array(scatters_int)
-        plt.scatter(scatters_int[:,0], scatters_int[:,1], color=int_color, s=size*3/5, zorder=3)
+        ax.scatter(scatters_int[:,0], scatters_int[:,1], color=int_color, s=size*3/5, zorder=zorder+3)
         lines_int = np.array(lines_int)
-        lc_int = mc.LineCollection(lines_int, color=int_color,zorder=1, linewidth=lw)
+        lc_int = mc.LineCollection(lines_int, color=int_color,zorder=zorder+1, linewidth=lw)
         ax.add_collection(lc_int)
 
 
 
     ax.add_collection(lc)
-    plt.scatter(scatters[:,0], scatters[:,1], color=last_color, s=size, zorder=4)
+    ax.scatter(scatters[:,0], scatters[:,1], color=last_color, s=size, zorder=zorder+4)
     
 def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
     n_dim = query.reshape(-1).shape[0]
