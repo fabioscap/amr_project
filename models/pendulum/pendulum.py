@@ -128,7 +128,7 @@ class Pendulum(Model):
         closest_state = None
         closest_u = None
 
-        for i in range(len(controls)):
+        for i in range(len(states)):
             delta = np.linalg.norm(x_rand-states[i][-1])
             if delta < min_distance:
                 min_distance = delta

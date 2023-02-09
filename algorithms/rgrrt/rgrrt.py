@@ -30,9 +30,11 @@ class RGRRT:
 
 
     def add_node(self, states, controls = None, cost=None, parent:Node=None):
+
         if len(states.shape) == 1:
             # if it's just a single state then reshape it to still be a collection of states
             states = states.reshape(1,-1)
+
         if controls is None:
             cost = 0
             controls = np.empty((1,self.u_dim))
@@ -56,7 +58,7 @@ class RGRRT:
         # to compute their reachable points and put them into the tree
         x_r, u_r = self.model.get_reachable_sampled(states[-1],self.tau)
 
-        for i in range(len(u_r)):
+        for i in range(len(x_r)):
             # x_r represents the whole trajectory to get to the reachable state
             x_r_i = x_r[i][-1]
             x_r_i_id = self._id(x_r_i)
@@ -150,12 +152,12 @@ class RGRRT:
                 plt.scatter(x_near[0], x_near[1], color="blue")
                 plt.scatter(x_next[0], x_next[1], color="blue")
                
-
-            goal, distance = self.model.goal_check(x_next)
-            if distance < self.min_distance:
-                self.min_distance = distance
-            if goal:
-                return True, node_next, self.n_nodes
+            for state in node_next.states:
+                goal, distance = self.model.goal_check(state)
+                if distance < self.min_distance:
+                    self.min_distance = distance
+                if goal:
+                    return True, node_next, self.n_nodes
 
         return False, None, self.n_nodes
     

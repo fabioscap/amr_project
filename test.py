@@ -101,13 +101,13 @@ def test_rgrrt_pendulum(seed=None):
 def test_rgrrt_hopper_1d(seed=None):
     if seed is  None: seed = np.random.randint(0,10**6)
     np.random.seed(seed)
-    h = Hopper1D(dt=0.01)
+    h = Hopper1D(dt=0.01, eps_goal=0.05)
 
     planner = RGRRT(h, 0.04)
 
     goal, goal_node, n_nodes = planner.plan(max_nodes=1000, plt=None)
     print("\n",goal)
-    
+    print(planner.min_distance)
     import matplotlib.style as mplstyle
     mplstyle.use(['dark_background', 'ggplot', 'fast'])
     utils.plot(planner, plt, plot_all=True)

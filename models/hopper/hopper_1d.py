@@ -138,22 +138,30 @@ class Hopper1D(Model):
     
     def get_reachable_sampled(self, x:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
         # TODO simulate until you can apply input (in this case until CONTACT)
+        no_inputs = []
+
+        x_ = x.copy()
+        while self.get_mode(x_) != self.CONTACT:
+            x_ = self.step(x_,...,self.dt)
+            no_inputs.append(x_)
+
+        if no_inputs:
+            return [np.array(no_inputs)], [np.array(0.0)]
+
         iters = int(dt//self.dt)
         states = []
         controls = []
 
         for u in self.motion_primitives:
-            s = np.zeros((iters,self.x_dim))
-            c = np.zeros((iters,self.u_dim))
+            s = no_inputs.copy()
 
-            x_r = x
+            x_r = x_
             for i in range(iters):
                 x_r = self.step(x_r, u, self.dt)
-                s[i] = x_r
-                c[i] = u
+                s.append(x_r)
 
-            states.append(s)
-            controls.append(c)
+            states.append(np.array(s))
+            controls.append(u)
 
         return states, controls
 
