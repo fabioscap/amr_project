@@ -2,13 +2,15 @@ import numpy as np
 from utils import normalize, convex_hull_of_point_and_polytope
 import pypolycontain as pp
 from models.model import Model
+import pypolycontain as pp
+
 
 class Pendulum(Model):
     
     def __init__(self, m=1, m_l=0, l=0.5, g=9.81, b=0.1, 
                        initial_state = np.array([0,0]), 
                        goal_states   = [np.array([np.pi, 0.0]), np.array([-np.pi, 0])],
-                       input_limits = np.array([-1,1]).reshape(1,-1),
+                       input_limits = np.array([-10, 10]).reshape(1,-1),
                        dt=0.01,
                        eps_goal=0.05):
         super().__init__(initial_state, input_limits, dt)
@@ -24,9 +26,7 @@ class Pendulum(Model):
         self.I = m*l**2 + (m_l*l**2)/12
 
         self.goal_states = goal_states
-        
-        self.u_bar =  ( self.input_limits[:,0] + self.input_limits[:,1] )/2
-        # self.u_diff = ( self.input_limits[1] - self.input_limits[0] )/2
+
 
         self.motion_primitives = [self.input_limits[:,0],
                                   self.u_bar,
@@ -34,6 +34,9 @@ class Pendulum(Model):
 
 
         self.eps_goal = eps_goal
+
+        print(self.u_bar)
+        print(self.u_diff)
 
     def f(self, x:np.ndarray, u:np.ndarray):
         dx = np.zeros_like(x)
@@ -76,11 +79,10 @@ class Pendulum(Model):
         A[1,1] = -(1/self.I)*self.b
 
         A = (np.eye(len(x)) + dt*A)
-        B *= dt
 
         B[0,0] = 0
         B[1,0] = (1/self.I)
-
+        B *= dt
         
         c = np.ndarray.flatten(self.step(x,u,dt)) - np.ndarray.flatten(A@x) - np.ndarray.flatten(B*u)
 
@@ -155,3 +157,13 @@ class Pendulum(Model):
             states.append(s)
             controls.append(u)
         return states, controls
+    
+    def get_reachable_AH(self, x: np.ndarray, dt: float, convex_hull: bool = False):
+        A, B, c = self.linearize_at(x, self.u_bar, dt)
+        x_next = (A@x + B@self.u_bar + c)
+
+        G = (B@self.u_diff).reshape(self.x_dim, self.u_dim)
+        AH = pp.to_AH_polytope(pp.zonotope(G,x_next.reshape(-1,1)))
+        if convex_hull:
+            AH = convex_hull_of_point_and_polytope(x.reshape(-1,1), AH)
+        return [(x_next, AH)]

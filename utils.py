@@ -173,25 +173,17 @@ class AABB: # axis aligned bounding box
         return plot
         
 
-def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.1,N=20,epsilon=0.001,plt=None):
+def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.4,N=20,epsilon=0.001,plt=None):
     v,w=AH_polytope_vertices(polytope,N=N,epsilon=epsilon)
     try:
         v=v[ConvexHull(v).vertices,:]
     except:
         v=v[ConvexHull(w).vertices,:]
     # x = v[0:2,:]
-    x = np.append(v[0:2,:],[state],axis=0)
-    p=Polygon(v,edgecolor = color,facecolor = color,alpha = alpha,lw=1)
+    x = np.append(v,[state],axis=0)
+    p=Polygon(x,edgecolor = color,facecolor = color,alpha = alpha,lw=1)
     plt.gca().add_patch(p)
 
-
-# dai a R3T.expand il plt e inserisci la seguente riga in r3t.py -> riga 79
-'''
-if plt!=None:
-    utils.visualize_polytope_convexhull(polytope,x,plt=plt)
-'''
-
-# pypolycontain's function is broken
 def convex_hull_of_point_and_polytope(x, Q):
     r"""
     Inputs:
