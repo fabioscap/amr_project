@@ -1,28 +1,15 @@
-from algorithms.rrt.rrt import StateTree, Node
+from algorithms.planner import Planner,StateTree, Node
 import numpy as np
 from models.model import Model
 import time
 
-class RGRRT:
-    def __init__(self, model: Model, tau, thr=1e-9):
 
-        self.model = model
-        self.x_dim = model.x_dim
-        self.u_dim = model.u_dim
-        self.state_tree = StateTree(self.x_dim)
+class RGRRT(Planner):
+    def __init__(self, model: Model, tau, thr=1e-9):
+        super().__init__(model, tau, thr)
 
         # we need an additional tree in which we store sampled reachable points
         self.reachable_tree = StateTree(self.x_dim)
-
-        self.tau = tau
-
-        self.min_distance = np.inf
-
-        self.n_nodes = 0
-
-        self.thr = thr # threshold to alias nodes
-
-        self.id_to_node: dict[int, Node] = {}
 
         # and an additional map to link the reachable points to their nodes
         # (and the dynamic trajectory that generated them)
@@ -41,7 +28,7 @@ class RGRRT:
 
         if cost is None:
             cost = np.linalg.norm(controls) 
-        node = Node(states, controls, parent, cost)
+        node = Node(states, controls, parent, cost, self.model.dt)
 
         # manage the parent's children
         if parent is not None:
@@ -80,11 +67,13 @@ class RGRRT:
         # if not, discard
         if np.linalg.norm(x_rand-x_near) < np.linalg.norm(x_rand-r_near):
             return None, None, None
-        
 
         return node_near, states, controls
     
     def expand(self, node_near: Node, states: np.ndarray, controls: np.ndarray):
+
+        # check for fast forward possibility
+        states = np.vstack(( states , self.model.ffw(states[-1]) ))
 
         x_next: np.ndarray = states[-1]
 
@@ -112,7 +101,7 @@ class RGRRT:
         if distance < self.min_distance:
             self.min_distance = distance
         if goal:
-            return True, self.initial_node, self.n_nodes
+            return True, plan
         
         start = time.time()
         while self.n_nodes < max_nodes:
@@ -152,25 +141,14 @@ class RGRRT:
                 plt.scatter(x_near[0], x_near[1], color="blue")
                 plt.scatter(x_next[0], x_next[1], color="blue")
                
-            for state in node_next.states:
+            for i in range(node_next.states.shape[0]):
+                state = node_next.states[i,:]
                 goal, distance = self.model.goal_check(state)
                 if distance < self.min_distance:
                     self.min_distance = distance
                 if goal:
-                    return True, node_next, self.n_nodes
+                    node_next.states = node_next.states[:i,:]
+                    plan = self.get_plan(node_next)
+                    return True, plan
 
-        return False, None, self.n_nodes
-    
-    def _id(self,x:np. ndarray):
-        return hash(str(x))
-
-    def get_plan(self, node: Node):
-        # go back until root
-        plan = [node]
-        while node.parent != None:
-            plan = [node.parent] + plan
-            node = node.parent
-        return plan
-    
-    def nodes(self):
-        return self.id_to_node.values()
+        return False, None

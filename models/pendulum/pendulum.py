@@ -10,7 +10,7 @@ class Pendulum(Model):
     def __init__(self, m=1, m_l=0, l=0.5, g=9.81, b=0.1, 
                        initial_state = np.array([0,0]), 
                        goal_states   = [np.array([np.pi, 0.0]), np.array([-np.pi, 0])],
-                       input_limits = np.array([-10, 10]).reshape(1,-1),
+                       input_limits = np.array([-1, 1]).reshape(1,-1),
                        dt=0.01,
                        eps_goal=0.05):
         super().__init__(initial_state, input_limits, dt)
@@ -34,9 +34,6 @@ class Pendulum(Model):
 
 
         self.eps_goal = eps_goal
-
-        print(self.u_bar)
-        print(self.u_diff)
 
     def f(self, x:np.ndarray, u:np.ndarray):
         dx = np.zeros_like(x)
@@ -156,7 +153,7 @@ class Pendulum(Model):
 
             states.append(s)
             controls.append(u)
-        return states, controls
+        return np.array(states), np.array(controls)
     
     def get_reachable_AH(self, x: np.ndarray, dt: float, convex_hull: bool = False):
         A, B, c = self.linearize_at(x, self.u_bar, dt)

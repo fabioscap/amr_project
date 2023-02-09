@@ -13,11 +13,12 @@ class Hopper1D(Model):
 
     def __init__(self, m=1, l=1, p=0.1, b=0.9, g=9.8, 
                  initial_state=np.array([2.0,0.0]), 
-                 input_limits =np.array([0,80]).reshape(1,-1),
+                 input_limits =np.array([0,200]).reshape(1,-1),
                  goal_states  =[np.array([3.0, 0.0])],
                  eps_goal = 0.1,
                  epsilon = 1e-7, 
-                 dt=0.001):
+                 dt=0.001,
+                 fast_forward=True):
         super().__init__(initial_state, input_limits, dt)
 
         self.x_dim = 2
@@ -35,15 +36,14 @@ class Hopper1D(Model):
 
         self.u_dim = 1
 
-
-        self.u_bar =  ( self.input_limits[:,0] + self.input_limits[:,1] )/2
-
         self.motion_primitives = [self.input_limits[:,0],
                                   self.u_bar,
                                   self.input_limits[:,1]]
 
         self.goal_states = goal_states
         self.eps_goal    = eps_goal
+
+        self.fast_forward = fast_forward
 
     def f_flight(self, x):
         # not actuated
@@ -137,26 +137,16 @@ class Hopper1D(Model):
         return A,B,c
     
     def get_reachable_sampled(self, x:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
-        # TODO simulate until you can apply input (in this case until CONTACT)
-        no_inputs = []
-
-        x_ = x.copy()
-        while self.get_mode(x_) != self.CONTACT:
-            x_ = self.step(x_,...,self.dt)
-            no_inputs.append(x_)
-
-        if no_inputs:
-            return [np.array(no_inputs)], [np.array(0.0)]
 
         iters = int(dt//self.dt)
         states = []
         controls = []
 
         for u in self.motion_primitives:
-            s = no_inputs.copy()
+            s = []
 
-            x_r = x_
-            for i in range(iters):
+            x_r = x
+            for _ in range(iters):
                 x_r = self.step(x_r, u, self.dt)
                 s.append(x_r)
 
@@ -164,4 +154,19 @@ class Hopper1D(Model):
             controls.append(u)
 
         return states, controls
+
+    def ffw(self, x: np.ndarray) -> list[np.ndarray]:
+        if self.fast_forward:
+                    
+            no_inputs = []
+
+            x_ = x.copy()
+            while self.get_mode(x_) != self.CONTACT:
+                x_ = self.step(x_,...,self.dt)
+                no_inputs.append(x_)
+
+            return np.array(no_inputs).reshape(-1,2)
+
+        else:
+            return super().ffw(x)
 

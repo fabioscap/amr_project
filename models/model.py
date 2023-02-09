@@ -1,4 +1,5 @@
 import numpy as np
+import pypolycontain as pp
 
 class Model:
 
@@ -10,6 +11,8 @@ class Model:
         self.input_limits = input_limits
         self.dt = dt
 
+        self.u_bar =  ( self.input_limits[:,0] + self.input_limits[:,1] )/2
+        self.u_diff = ( self.input_limits[:,1] - self.input_limits[:,0] )/2
 
         # TODO either this or motion primitives
         # both rely on distance metric which is not the best with hybrid systems
@@ -41,10 +44,18 @@ class Model:
         # a predefined discrete set of inputs
         raise NotImplementedError()
     
-
+    def get_reachable_AH(self, x:np.ndarray, dt:float, convex_hull:bool=False)->list[tuple[np.ndarray, pp.AH_polytope]]:
+        # get reachable set approximation using AH-polytopes
+        # returns the a keypoint and a polytope for each reachable polytope
+        raise NotImplementedError()
 
 
     def expand_toward_pinv(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
         raise NotImplementedError()
     def expand_toward_samples(self, x_near: np.ndarray, x_rand: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
         raise NotImplementedError()
+    
+    def ffw(self, x: np.ndarray)->list[np.ndarray]:
+        # for hybrid systems especially it can be useful to skip phases in which you
+        # do not have inputs available to avoid generating nodes and cluttering the state space
+        return np.array([]).reshape(-1,self.x_dim)
