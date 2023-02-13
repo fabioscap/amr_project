@@ -6,6 +6,7 @@ from lib.operations import AH_polytope_vertices
 from scipy import sparse
 import pypolycontain as pp
 import qpsolvers
+from matplotlib import collections as mc
 
 
 def normalize(angle):
@@ -37,6 +38,7 @@ def plot(nodes, ax,int_color='pink', last_color="red", size=5, lw=1, th=100, plo
     scatters = []
     scatters_int = []
 
+    for node in nodes:
     for node in nodes:
         # always plot the last node
         scatters.append(node.state)
@@ -101,6 +103,7 @@ def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
     solution = qpsolvers.solve_qp(sP,q,G=sG,h=h,A=sA,b=b, solver="gurobi")
     try:
         delta = solution[:n_dim]
+        return delta
     except TypeError:
         print(query)
         print(AH.t)
@@ -112,15 +115,7 @@ def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
         print(h)
         print(sA)
         print(b)
-    x = solution[n_dim:]
-
-    distance = np.linalg.norm(delta)
-
-    point = query + delta
-
-    # point_ = AH.T@x + AH.t.reshape(-1)
-    # print(point_ - query - delta) not zero 
-    return point, distance
+        return None
 
 class AABB: # axis aligned bounding box
 
