@@ -6,6 +6,7 @@ from lib.operations import AH_polytope_vertices
 from scipy import sparse
 import pypolycontain as pp
 import qpsolvers
+from matplotlib import collections as mc
 
 
 def normalize(angle):
@@ -26,10 +27,8 @@ def plot_hopper_2d(root_node, plt):
         plot_hopper_2d(child, plt)
 
 
-def plot(planner, plt,int_color='pink', last_color="red", size=5, lw=1, th=100, plot_all=True):
+def plot(nodes, ax,int_color='pink', last_color="red", size=5, lw=1, th=100, plot_all=True):
     # speed up plots by plotting all at once
-    from matplotlib import collections as mc
-    fig, ax = plt.subplots()
 
     lines = []
     lines_int = []
@@ -37,7 +36,7 @@ def plot(planner, plt,int_color='pink', last_color="red", size=5, lw=1, th=100, 
     scatters = []
     scatters_int = []
 
-    for node in planner.nodes():
+    for node in nodes:
         # always plot the last node
         scatters.append(node.state)
 
@@ -61,7 +60,7 @@ def plot(planner, plt,int_color='pink', last_color="red", size=5, lw=1, th=100, 
 
     if plot_all and len(scatters_int) > 0 :
         scatters_int = np.array(scatters_int)
-        plt.scatter(scatters_int[:,0], scatters_int[:,1], color=int_color, s=size*3/5, zorder=3)
+        ax.scatter(scatters_int[:,0], scatters_int[:,1], color=int_color, s=size*3/5, zorder=3)
         lines_int = np.array(lines_int)
         lc_int = mc.LineCollection(lines_int, color=int_color,zorder=1, linewidth=lw)
         ax.add_collection(lc_int)
@@ -69,7 +68,7 @@ def plot(planner, plt,int_color='pink', last_color="red", size=5, lw=1, th=100, 
 
 
     ax.add_collection(lc)
-    plt.scatter(scatters[:,0], scatters[:,1], color=last_color, s=size, zorder=4)
+    ax.scatter(scatters[:,0], scatters[:,1], color=last_color, s=size, zorder=4)
     
 def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
     n_dim = query.reshape(-1).shape[0]
@@ -101,6 +100,7 @@ def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
     solution = qpsolvers.solve_qp(sP,q,G=sG,h=h,A=sA,b=b, solver="gurobi")
     try:
         delta = solution[:n_dim]
+        return delta
     except TypeError:
         print(query)
         print(AH.t)
@@ -112,15 +112,7 @@ def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
         print(h)
         print(sA)
         print(b)
-    x = solution[n_dim:]
-
-    distance = np.linalg.norm(delta)
-
-    point = query + delta
-
-    # point_ = AH.T@x + AH.t.reshape(-1)
-    # print(point_ - query - delta) not zero 
-    return point, distance
+        return None
 
 class AABB: # axis aligned bounding box
 
