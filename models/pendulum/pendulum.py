@@ -87,7 +87,7 @@ class Pendulum(Model):
 
     def sample(self, **kwargs) -> np.ndarray:
         goal_bias = np.random.rand(1)
-        if goal_bias < 0.3:
+        if goal_bias < 0:
             if goal_bias < 0.15: return self.goal_states[0]
             else:                return self.goal_states[1]
         else:

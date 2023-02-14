@@ -57,5 +57,10 @@ class Model:
     
     def ffw(self, x: np.ndarray)->list[np.ndarray]:
         # for hybrid systems especially it can be useful to skip phases in which you
-        # do not have inputs available to avoid generating nodes and cluttering the state space
+        # do not have inputs available to avoid cluttering the sample space with
+        # nodes that cannot be further expanded
         return np.array([]).reshape(-1,self.x_dim)
+    
+    def calc_input(self, frm: np.ndarray, to: np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
+        # hybrid systems override this
+        return self.expand_toward_pinv(x_near=frm, x_rand=to, dt=dt)

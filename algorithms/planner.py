@@ -4,6 +4,7 @@ import numpy as np
 import pypolycontain as pp
 import utils
 import time
+import matplotlib.pyplot as plt
 
 class Node:
     def __init__(self, states:np.ndarray, # an array of dimension   (n, dim_x)
@@ -34,6 +35,7 @@ class Node:
         
     def add_child(self, child):
         if child in self.children:
+            print(child.state)
             return False
         else:
             self.children.add(child)
@@ -42,9 +44,9 @@ class Node:
     def __hash__(self) -> int:
         return hash(str(np.hstack((self.states.flatten(), self.u.flatten()))))
     
-    def __ex__(self, __o: object) -> bool:
+    def __eq__(self, __o: object) -> bool:
         return self.__hash__() == __o.__hash__()
-    
+
     def __repr__(self) -> str:
         return f"[{self.state}, {self.u}]"
     
@@ -81,7 +83,7 @@ class Planner:
     def expand(self, x_rand: np.ndarray)-> tuple[np.ndarray, np.ndarray]:
         raise NotImplementedError()
 
-    def plan(self, max_nodes, plt=None):
+    def plan(self, max_nodes, ax=None):
         # add the first node with the initial state
         initial_state = self.model.initial_state
 
@@ -99,7 +101,7 @@ class Planner:
         start = time.time()
         while self.n_nodes < max_nodes:
             t = time.time()
-            if it%100 == 0:
+            if it%1 == 0:
                 print(f"n_nodes: {self.n_nodes}, d: {self.min_distance}, d: {dropped}, t: {t-start} sec", end='\r')
             it+=1
             x_rand = self.model.sample()
@@ -112,7 +114,7 @@ class Planner:
 
             x_next = node_next.state
 
-            if plt != None: # debug
+            if ax != None: # debug
                 x_near = node_near.state
                 try: x_rand_plot.remove()
                 except: pass
@@ -120,16 +122,17 @@ class Planner:
                 except: pass
                 try: x_near_plot.remove()
                 except: pass
-                x_rand_plot = plt.scatter(x_rand[0], x_rand[1], marker="x", color="green")
-                x_near_plot = plt.scatter(x_near[0], x_near[1], color="purple")
-                x_next_plot = plt.scatter(x_next[0], x_next[1], color="cyan")
-                plt.plot([x_near[0], x_next[0]], [x_near[1],x_next[1]], color="blue")
+                x_rand_plot = ax.scatter(x_rand[0], x_rand[1], marker="x", color="green")
+                x_near_plot = ax.scatter(x_near[0], x_near[1], color="purple")
+                x_next_plot = ax.scatter(x_next[0], x_next[1], color="cyan")
+                ax.plot([x_near[0], x_next[0]], [x_near[1],x_next[1]], color="blue")
+                
                 plt.draw()
                 plt.pause(0.01)
                 input()
 
-                plt.scatter(x_near[0], x_near[1], color="blue")
-                plt.scatter(x_next[0], x_next[1], color="blue")
+                ax.scatter(x_near[0], x_near[1], color="blue")
+                ax.scatter(x_next[0], x_next[1], color="blue")
                
             for i in range(node_next.states.shape[0]):
                 state = node_next.states[i,:]
@@ -137,7 +140,7 @@ class Planner:
                 if distance < self.min_distance:
                     self.min_distance = distance
                 if goal:
-                    node_next.states = node_next.states[:i,:]
+                    node_next.states = node_next.states[:i+1,:]
                     plan = self.get_plan(node_next)
                     return True, plan
 
@@ -202,13 +205,16 @@ class PolytopeTree:
 
     def nearest_polytope(self, query: np.ndarray)->pp.AH_polytope:
         
-        nearest_kp_id, _ = self.kpoint_tree.nearest(query)
+        nearest_kp_id = self.kpoint_tree.nearest(query)
 
         polytope_star = self.kp_id_to_polytope[nearest_kp_id]
 
         delta = utils.distance_point_polytope(query, polytope_star)
         d_star = np.linalg.norm(delta)
         p_star = query + delta
+
+        if d_star <= 1e-6:
+            return polytope_star, p_star, d_star
 
         abs_delta = np.abs(delta)
 

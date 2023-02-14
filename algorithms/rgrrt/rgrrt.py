@@ -1,7 +1,6 @@
 from algorithms.planner import Planner,StateTree, Node
 import numpy as np
 from models.model import Model
-import time
 
 
 class RGRRT(Planner):
@@ -54,21 +53,7 @@ class RGRRT(Planner):
 
         return node
 
-    # find x_near
-    def nearest_neighbor(self, x_rand):
-        # get the nearest reachable point
-        id_near = self.reachable_tree.nearest(x_rand)
 
-        node_near, states, controls = self.r_id_to_node[id_near]
-        x_near = node_near.state
-        r_near = states[-1]
-
-        # check if the expansion will be in the direction of x_rand
-        # if not, discard
-        if np.linalg.norm(x_rand-x_near) < np.linalg.norm(x_rand-r_near):
-            return None, None, None
-
-        return node_near, states, controls
     
     def expand(self, x_rand):
 

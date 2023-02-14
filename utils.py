@@ -39,7 +39,8 @@ def plot(nodes, ax,int_color='pink', last_color="red", size=5, lw=1, th=100, plo
     scatters_int = []
 
     for node in nodes:
-    for node in nodes:
+        if hasattr(node, "polytopes"):
+            visualize_polytope_convexhull(node.polytopes[0], node.state, ax=ax)
         # always plot the last node
         scatters.append(node.state)
 
@@ -59,7 +60,7 @@ def plot(nodes, ax,int_color='pink', last_color="red", size=5, lw=1, th=100, plo
         
     scatters = np.array(scatters)
     lines = np.array(lines)
-    lc = mc.LineCollection(lines, color=last_color,zorder=zorder+2,linewidth=lw)
+    lc = mc.LineCollection(lines, color=int_color,zorder=zorder+2,linewidth=lw)
 
     if plot_all and len(scatters_int) > 0 :
         scatters_int = np.array(scatters_int)
@@ -94,13 +95,9 @@ def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
     A[:,:n_dim] = - np.eye(n_dim)
     A[:,n_dim:] = AH.T
 
-    sA = sparse.csr_matrix(A)
-    sP = sparse.csr_matrix(P)
-    sG = sparse.csr_matrix(G)
-
     b = (query.reshape(-1) - AH.t.reshape(-1)).reshape(-1)
 
-    solution = qpsolvers.solve_qp(sP,q,G=sG,h=h,A=sA,b=b, solver="gurobi")
+    solution = qpsolvers.solve_qp(P,q,G=G,h=h,A=A,b=b, solver="gurobi")
     try:
         delta = solution[:n_dim]
         return delta
@@ -109,11 +106,8 @@ def distance_point_polytope(query:np.ndarray, AH:pp.AH_polytope):
         print(AH.t)
         print(AH.T)
         print("----")
-        print(sP)
         print(q)
-        print(sG)
         print(h)
-        print(sA)
         print(b)
         return None
 
@@ -168,7 +162,7 @@ class AABB: # axis aligned bounding box
         return plot
         
 
-def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.4,N=20,epsilon=0.001,plt=None):
+def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.4,N=20,epsilon=0.001,ax=None):
     v,w=AH_polytope_vertices(polytope,N=N,epsilon=epsilon)
     try:
         v=v[ConvexHull(v).vertices,:]
@@ -177,7 +171,8 @@ def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.4,N=20,eps
     # x = v[0:2,:]
     x = np.append(v,[state],axis=0)
     p=Polygon(x,edgecolor = color,facecolor = color,alpha = alpha,lw=1)
-    plt.gca().add_patch(p)
+    ax.add_patch(p)
+    return p
 
 def convex_hull_of_point_and_polytope(x, Q):
     r"""
@@ -192,6 +187,7 @@ def convex_hull_of_point_and_polytope(x, Q):
     """
     Q=pp.to_AH_polytope(Q)
     q=Q.P.H.shape[1]
+
     new_T=np.hstack((Q.T,Q.t-x))
     new_t=x
     new_H_1=np.hstack((Q.P.H,-Q.P.h))

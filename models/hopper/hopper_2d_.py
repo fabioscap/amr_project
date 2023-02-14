@@ -80,7 +80,7 @@ class Hopper2D:
         self.input_limits = np.vstack([[-500,1e3], [500,2e3]])
         self.u_bar =  ( self.input_limits[0,:] + self.input_limits[1,:] )/2
         self.u_diff = ( self.input_limits[1,:] - self.input_limits[0,:] )/2
-        self.motion_primitives = self._build_primitives(n0=3, n1=3)
+        # self.motion_primitives = self._build_primitives(n0=3, n1=3)
 
     def get_ddots(self, x, Fx, Fy, F_leg, u0):
         R = x[4]-self.l1

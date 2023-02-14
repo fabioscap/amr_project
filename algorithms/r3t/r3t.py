@@ -1,446 +1,91 @@
-from algorithms.rrt.rrt import StateTree, Node
-from rtree import index
-import pypolycontain as pp
-import utils
+from algorithms.planner import Planner,StateTree,PolytopeTree,Node
 import numpy as np
+from models.model import Model
+import utils
+import matplotlib.pyplot as plt
 
-class R3T:
+class R3T(Planner):
     
-    def __init__(self, initial_state, goal_state, eps, state_bounds, solve_input_func, get_polytope_func, get_kpoints_func, tau,is_hopper_2d=False, rewire=False):
-        self.dim = initial_state.shape[0]
-        self.initial_state = initial_state
-        self.goal_state = goal_state
-        self.eps = eps
-        self.state_bounds = state_bounds # shape(dim,2)
+    def __init__(self, model: Model, tau, thr=1e-5, convex_hull=True):
+        super().__init__(model, tau, thr)
 
-        self.is_hopper_2d = is_hopper_2d
+        self.convex_hull = convex_hull
 
-        self.polytope_tree = PolytopeTree(self.dim)
-        self.state_tree = StateTree(self.dim)
+        # we need a polytope tree to find the nearest polytope given a query point
+        self.polytope_tree = PolytopeTree(model.x_dim)
 
-        self.solve_input_func = solve_input_func
-        self.get_polytope_func = get_polytope_func
-        self.get_kpoints_func = get_kpoints_func
-        self.tau = tau
-
-
-        # map
         self.polytope_id_to_node = {}
-        self.state_to_node = {}
 
-        self.initial_state_id = hash(str(self.initial_state))
+    def add_node(self, states, controls = None, cost=None, parent:Node=None):
+        if len(states.shape) == 1:
+            # if it's just a single state then reshape it to still be a collection of states
+            states = states.reshape(1,-1)
+        if controls is None:
+            cost = 0
+            controls = np.empty((1,self.u_dim))
+
+        if cost is None:
+            cost = np.sum( np.linalg.norm(controls) ) # sum the cost of every control
+        node = Node(states, controls, parent, cost, self.model.dt)
+
+        # manage the parent's children
+        if parent is not None:
+            is_new = parent.add_child(node)
+            assert is_new
         
-        # insert polytope
-        states, polytope = self.get_polytope_func(initial_state, self.tau)
-        states = [initial_state] + states
-        self.initial_node = Node(states)
-        kpoints = self.get_kpoints_func(initial_state, self.tau)
-        self.polytope_tree.insert(polytope, kpoints)
-        self.state_tree.insert(self.initial_state_id, self.initial_state)
+        self.n_nodes += 1
 
-        self.state_to_node[self.initial_state_id] = self.initial_node
-        self.polytope_id_to_node[hash(polytope)] = self.initial_node
-        self.min_distance = np.inf
+        state_id = self.state_tree.insert(states[-1])
+        self.id_to_node[state_id] = node
 
-        self.rewire = rewire
+        # we need to get polytopes and respective keypoints and put those in the tree
+        reachables = self.model.get_reachable_AH(states[-1], self.tau, convex_hull=True)
+        node.polytopes = []
+        for reachable in reachables:
+            kpoint = reachable[0]
+            polytope = reachable[1]
 
-    def sample_state(self):
+            """
+            p = utils.visualize_polytope_convexhull(polytope, states[-1], ax=ax)
+            plt.draw()
+            plt.pause(0.01)
+            """
 
-        if self.is_hopper_2d:
-            # [x_hip, y_hip, theta(leg), phi(body), r]
-            # if np.random.rand(1)<0.5:
-            #     return uniform_sampler()
-            rnd = np.random.rand(11)
-            rnd[0] = rnd[0] * 15 
-            rnd[1] = (rnd[1] - 0.5) * 2 * 0.75 + 1.5
-            rnd[2] = np.random.normal(0, np.pi / 4) # (np.random.rand(1)-0.5)*2*np.pi/12
-            rnd[3] = np.random.normal(0, np.pi / 8)#np.random.normal(0, np.pi / 16)
-            rnd[4] = (rnd[4] - 0.5) * 2 * 0.5 + 2
-            rnd[5] = np.random.normal(1.5, 3) #(rnd[5] - 0.5) * 2 * 6
-            rnd[6] = (rnd[6] - 0.5) * 2 * 12 # np.random.normal(0, 6)
-            rnd[7] = np.random.normal(0, 20) # (np.random.rand(1)-0.5)*2*20
-            rnd[8] = np.random.normal(0, 3) # (np.random.rand(1)-0.5)*2*5
-            rnd[9] = (rnd[9] - 0.5) * 2 * 10 + 3 #np.random.normal(2, 12)
-            
-            # convert to hopper foot coordinates
-            rnd_ft = np.zeros(11)
-            rnd_ft[0] = rnd[0]-np.sin(rnd[2])*rnd[4]
-            rnd_ft[1] = rnd[0]-np.cos(rnd[2])*rnd[4]
-            # if np.random.rand(1)<0.7:
-            #     rnd_ft[1]=(rnd[1]/2-0.2)
-            rnd_ft[5] = rnd[5]-rnd[9]*np.sin(rnd[2])-rnd[4]*np.cos(rnd[2])*rnd[7]
-            rnd_ft[6] = rnd[6] - rnd[9] * np.cos(rnd[2]) + rnd[4] * np.sin(rnd[2]) * rnd[7]
-            if rnd_ft[1]<=0:
-                rnd_ft[2]=rnd[2]*2
-                rnd_ft[7]=rnd[7]*5
-            else:
-                rnd_ft[2] = rnd[2]
-                rnd_ft[7] = rnd[7]
-            rnd_ft[3:5] = rnd[3:5]
-            rnd_ft[8:] = rnd[8:]
-            
-            return rnd_ft
+            self.polytope_tree.insert(polytope, kpoint)
+            self.polytope_id_to_node[hash(polytope)] = node
 
-        else:
+            node.polytopes.append(polytope)
 
-            rnd = np.random.rand(self.dim)
-
-            # normalize in bounds [0,1]->[low,high]
-            for i in range(self.dim):
-                high = self.state_bounds[i,1]
-                low  = self.state_bounds[i,0]
-                rnd[i] = (high-low)*rnd[i] + low
-
-                goal_bias_rnd = np.random.rand(1)
-                if goal_bias_rnd < 0.3:
-                    return self.goal_state + np.random.randn()*0.3
-            return rnd
-
+        return node
     
-    # find q_near
-    def nearest_neighbor(self, q_rand):
-        poly_near, d_near, point_near = self.polytope_tree.nearest(q_rand)
-        # possibly return the id
-        node_near = self.polytope_id_to_node[hash(poly_near)]
+    def expand(self, x_rand):
 
-        return node_near, point_near
-    
-    def expand(self, node_near: Node, point_near,plt):
+        # get the nearest reachable point
+        polytope, point, dist = self.polytope_tree.nearest_polytope(x_rand)
+
+        polytope_id = hash(polytope)
+        node_near = self.polytope_id_to_node[polytope_id]
+
+        x_near = node_near.state
+
+        states, controls = self.model.calc_input(frm=x_near, to=point, dt=self.tau)
         
-        x = node_near.state
-        states, controls = self.solve_input_func(x, point_near, self.tau)
+        states = np.vstack(( states , self.model.ffw(states[-1]) ))
 
-        if states is None:
-            return None # not feasible
         x_next = states[-1]
-        state_id = hash(str(x_next))
 
-        _, closest_state = self.state_tree.nearest(x_next)
+        closest_idx = self.state_tree.nearest(x_next)
+        closest_state = self.id_to_node[closest_idx].state
 
-        if np.linalg.norm(x_next-closest_state) < 1e-9:
-            return None
+
+        if np.linalg.norm(x_next - closest_state) < self.thr:
+            # there is already a node at this location
+            # TODO consider rewiring if the cost is less
+            return None, None
+        
+        cost = np.sum( np.linalg.norm(controls) )
 
         # add node to tree
-        cost = sum([np.linalg.norm(u) for u in controls])
-        
-        # insert polytope
-        states_no_input, polytope = self.get_polytope_func(x_next, self.tau)
-        polytope_id = hash(polytope)
+        node_next = self.add_node(states, controls, cost, node_near)
 
-        states = states + states_no_input
-
-        node_next = Node(states, controls, node_near, cost=cost)
-        new_child = node_near.add_child(node_next)
-
-        kpoints = self.get_kpoints_func(x_next, self.tau)
-        self.polytope_tree.insert(polytope, kpoints)
-        self.state_tree.insert(state_id, x_next)
-
-
-        # add link to node
-        self.state_to_node[state_id] = node_next
-        self.polytope_id_to_node[polytope_id] = node_next
-
-        if self.rewire:
-
-            # rewire 1
-            # given the new reachable set, find every other intersecting reachable set
-            # approximation using bboxes
-            box = utils.AABB.from_AH(polytope)
-            # candidate nodes
-            intersecting = self.polytope_tree.intersecting_boxes(box)
-
-            for idx in intersecting:
-                node = self.polytope_id_to_node[idx]
-                # try expanding in the direction of x_next
-                states, controls = self.solve_input_func(x_next, node.state, self.tau)
-                if states is None:
-                    continue # cannot reach x_next
-                if np.linalg.norm(states[-1]-x_next) > 1e-3:
-                    continue # did not reach x_next
-                c2g = sum([np.linalg.norm(u) for u in controls])
-                # TODO can we store the cumulative cost
-                if self.cumulative_cost(node_next) > self.cumulative_cost(node) + c2g:
-                    # rewire
-                    print("rewiring 1")
-                    # remove this node from old parent's children
-                    node_next.parent.children.remove(node_next)
-                    # set the new parent
-                    node_next.parent = node
-                    # add this node to the new parent's children
-                    node.add_children(node_next)
-
-            # rewire 2
-            # given the new reachable set, find all the nodes that fall into it
-            # approximation using bounding boxes
-            lu = np.concatenate((box.l, box.u))
-            candidate_nodes = [self.state_to_node[idx] \
-                               for idx in list(self.state_tree.state_idx.nearest(lu))]
-            for node in candidate_nodes:
-                q_i = node.state
-                # try expanding in the direction of q_i
-                states, controls = self.solve_input_func(q_i, x_next, self.tau)
-                if states is None:
-                    continue # cannot reach q_i
-                if np.linalg.norm(states[-1] - q_i) > 1e-3:
-                    continue # did not reach q_i
-                c2g = sum([np.linalg.norm(u) for u in controls])
-                if self.cumulative_cost(node) > self.cumulative_cost(node_next) + c2g:
-                    # rewire
-                    print("rewiring 2")
-                    node.parent.children.remove(node)
-                    node.parent = node_next
-                    node_next.add_child(node)
-
-        return node_next
-        
-    def cumulative_cost(self, node:Node):
-        cumulative_cost = node.cost
-        while node.parent is not None:
-            cumulative_cost += node.parent.cost
-            node = node.parent
-        return cumulative_cost
-
-    def plan(self, max_nodes, plt=None):
-
-        goal,valid_states= self.goal_check(self.initial_node, self.goal_state)
-        if goal:
-            print("goal")
-            return True, self.initial_node, 1
-
-        n_nodes = 1
-        while n_nodes < max_nodes:
-            if n_nodes%1 == 0:
-                print("\rNodes: {0},     Distance: {1}".format(n_nodes,self.min_distance))
-
-
-            q_rand = self.sample_state()
-
-            node_near, r_near = self.nearest_neighbor(q_rand)
-            if r_near is None:
-                continue
-
-            node_next = self.expand(node_near, r_near,plt)
-            if node_next is None:
-                continue
-            n_nodes+= 1
-            q_next = node_next.state
-
-            if plt != None:
-                q_parent = node_next.parent.state
-                plt.scatter(q_next[0], q_next[1], c="blue")
-                plt.plot([q_parent[0], q_next[0]],[q_parent[1], q_next[1]], c="blue")
-
-            goal,valid_states = self.goal_check(node_next, self.goal_state)
-
-            if goal:
-                print("goal")
-                print(self.min_distance)
-                node_next.states =valid_states
-                #node_next.state=None
-                
-                return True, node_next, n_nodes
-        print("no goal")
-        print(self.min_distance)
-        return False, None, n_nodes
-    
-    def goal_check(self, node_next, q_goal):
-        valid_states =[]
-        for q in node_next.states:#[::-1]:
-            valid_states.append(q)
-            if self.is_hopper_2d:
-                delta = q[0]-q_goal[0]
-                
-            else:
-                delta = q-q_goal
-            norm = np.linalg.norm(delta)
-            if norm < self.min_distance:
-                self.min_distance = norm
-            if self.is_hopper_2d and q[0] >q_goal[0]:
-                return True, valid_states
-            if norm < self.eps:
-                valid_states
-                return True,valid_states
-            valid_states.append(q)
-        return False,None
-    
-    def get_plan(self, node: Node, plt=None, filepath=None):
-        plan = [node.states]
-        q = node.state
-        while node.parent != None:
-            plan = [node.parent.states] + plan
-            if plt != None:
-                if self.is_hopper_2d and False:
-                    pass
-                else:
-                    q = self.plot_node_states(q,node,plt)
-            node = node.parent
-        if plt != None:          
-            if self.is_hopper_2d and False:
-                pass
-            else:
-                q = self.plot_node_states(q,node,plt)
-        if filepath is not None:
-            with open(filepath,"w") as file:
-                file.write(str(plan))
-        return plan
-    
-    def plot_node_states(self,q,node,plt):
-        states = np.array(node.states)
-        plt.scatter(states[:-1,0], states[:-1,1], s=5,c="red")
-        plt.plot(states[:,0], states[:,1], c="red", linewidth=1)
-        q_next = node.state
-        plt.plot([q[0],q_next[0]],[q[1],q_next[1]],c="red",linewidth=1)
-        return q_next
-
-    def plot_node_states_(self,q,node,plt):
-        states = np.array(node.states)
-        plt.scatter(states[:-1,0], states[:-1,1], s=5,c="red")
-        plt.plot(states[:,0], states[:,1], c="red", linewidth=1)
-        q_next = node.state
-        plt.plot([q[0],q_next[0]],[q[1],q_next[1]],c="red",linewidth=1)
-        return q_next
-
-
-
-
-class PolytopeTree:
-    def __init__(self, dim) -> None:
-
-        self.dim = dim
-
-        self.kpoints_tree = KPointTree(dim) # or kd tree
-        self.aabb_tree = AABBTree(dim)
-
-        self.polytope_id_to_polytope = {}
-
-    def insert(self, polytope: pp.AH_polytope, kpoints):
-        polytope_id = hash(polytope)
-        kpoints = kpoints[0] # I also return controls
-        for i in range(len(kpoints)):
-            kpoint = kpoints[i]
-            self.kpoints_tree.insert(polytope_id, kpoint)
-
-        # AABB converts to bbox
-        self.aabb_tree.insert(polytope_id, polytope)
-
-        self.polytope_id_to_polytope[polytope_id] = polytope
-
-    def nearest(self, query):
-        #AABB query
-
-        # polytope relative to closest kpoint
-        id_star = self.kpoints_tree.nearest(query)
-        polytope_star = self.polytope_id_to_polytope[id_star]
-        
-        point_star, d_star = utils.distance_point_polytope(query, polytope_star)
-        n_calls = 1
-        
-        if d_star <= 1e-9:
-            return polytope_star, d_star, point_star
-
-        # box centered in query large 2d_star
-        heuristic_box = utils.AABB(-d_star*np.ones(self.dim)*1.001 + query, d_star*np.ones(self.dim)*1.001 + query)
-        
-        intersecting_polytopes_ids = self.aabb_tree.intersection(heuristic_box)
-        # print("intersecting first box:", len(intersecting_polytopes_ids))
-
-        # intersecting_polytopes_ids.remove(polytope_id)
-        # return polytope_star, d_star, point_star
-        dropped_polytope_ids = {id_star,}
-        
-        while intersecting_polytopes_ids != set():
-            idx = intersecting_polytopes_ids.pop()
-
-            # spare some calls to the solver
-            if idx in dropped_polytope_ids or idx == id_star:
-                # print("already did")
-                continue
-            else:
-                P_cand = self.polytope_id_to_polytope[idx]
-                p, d = utils.distance_point_polytope(query, P_cand)
-                n_calls += 1
-
-            if d < d_star:
-                d_star = d
-                id_star = idx
-                polytope_star = P_cand
-                point_star = p
-
-                # redo the candidates
-                heuristic_box = utils.AABB(-d_star*np.ones(self.dim)*1.001 + query, d_star*np.ones(self.dim)*1.001 + query)
-
-                intersecting_polytopes_ids = self.aabb_tree.intersection(heuristic_box) 
-                dropped_polytope_ids.add(idx)
-                # print("intersecting next box:", len(intersecting_polytopes_ids - dropped_polytope_ids))
-            else:
-                dropped_polytope_ids.add(idx)
-        # print("n_calls",n_calls)
-        # input()
-        return polytope_star, d_star, point_star
-
-    def intersecting_boxes(self, box):
-
-        return self.aabb_tree.intersection(box)
-
-class AABBTree:
-
-    def __init__(self, dim):
-
-        self.AABB_tree_p = index.Property()
-        self.AABB_tree_p.dimension = dim
-
-        self.AABB_idx = index.Index(properties=self.AABB_tree_p,
-                                    interleaved=True)
-        
-        self.AABB_to_polytope = {}
-
-    def insert(self, polytope_id, polytope: pp.AH_polytope):
-
-        bbox = utils.AABB.from_AH(polytope)
-
-        lu = np.concatenate((bbox.l, bbox.u))
-        self.AABB_idx.insert(polytope_id, lu)
-        if polytope_id in self.AABB_to_polytope:
-            print("Warning: polytope duplicate")
-        self.AABB_to_polytope[polytope_id] = polytope
-
-    def intersection(self, bbox: utils.AABB):
-        
-        lu = np.concatenate((bbox.l, bbox.u))
-
-        intersections = set(self.AABB_idx.intersection(lu))
-
-        return intersections
-
-    # test
-    def insert_bbox(self, bbox_id, bbox):
-
-        lu = np.concatenate((bbox.l, bbox.u))
-
-        self.AABB_idx.insert(bbox_id, lu)
-
-class KPointTree:
-    def __init__(self, dim):
-        self.dim = dim
-        self.kpoint_tree_p = index.Property()
-        self.kpoint_tree_p.dimension = dim
-        
-        self.kpoint_idx = index.Index(properties=self.kpoint_tree_p)
-
-        # map
-        self.kpoint_id_to_polytope = {}
-
-    def insert(self, polytope_id, kpoint):
-        kpoint_id = hash(str(kpoint))
-        self.kpoint_idx.insert(kpoint_id, kpoint)
-        self.kpoint_id_to_polytope[kpoint_id] = polytope_id
-
-    def nearest(self, query):
-        # https://github.com/wualbert/r3t/blob/master/common/basic_rrt.py
-        # they stack the state for some reason
-
-        nearest_id = list(self.kpoint_idx.nearest(query, num_results=1))[0]
-        polytope_id = self.kpoint_id_to_polytope[nearest_id]
-
-        return polytope_id
+        return node_next, node_near

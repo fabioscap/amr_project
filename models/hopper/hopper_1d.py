@@ -55,7 +55,7 @@ class Hopper1D(Model):
         return dx
     
     def f_bounce(self, x):
-        x_plus = np.array([self.l+self.epsilon, -x[1]*self.b])
+        x_plus = np.array([x[0]+self.epsilon, -x[1]*self.b])
         return x_plus
 
 
@@ -116,6 +116,8 @@ class Hopper1D(Model):
         pass
     
     def linearize_at(self, x:np.ndarray, u:np.ndarray, dt:float, mode=None):
+        if mode == None:
+            mode = self.get_mode(x)
         # no dependence on x,u as expected (linear dynamics)
         if mode == self.FLIGHT:
             A = (np.array([[0,1],[0,0]])*dt + np.eye(2))
@@ -128,8 +130,8 @@ class Hopper1D(Model):
         elif mode == self.BOUNCE:
             # xdot_k+1 = -b xdot_k
             B = np.array([[0,0]]).reshape(2,1)
-            A = np.array([[0, 0],[0,-self.b]])
-            c = np.array([self.l+self.epsilon, 0.0])
+            A = np.array([[1, 0],[0,-self.b]])
+            c = np.array([self.epsilon, 0.0])
 
         else:
             raise Exception()
@@ -169,4 +171,37 @@ class Hopper1D(Model):
 
         else:
             return super().ffw(x)
+        
+
+    def get_reachable_AH(self, x: np.ndarray, dt: float, convex_hull: bool = False) -> list[tuple[np.ndarray, pp.AH_polytope]]:
+        A, B, c = self.linearize_at(x, self.u_bar, dt)
+        x_next = (A@x + B@self.u_bar + c)
+
+        G = (B@self.u_diff).reshape(self.x_dim, self.u_dim)
+        AH = pp.to_AH_polytope(pp.zonotope(G,x_next.reshape(-1,1)))
+        if convex_hull:
+            AH = convex_hull_of_point_and_polytope(x.reshape(-1,1), AH)
+        return [(x_next, AH)]
+    
+    def expand_toward_pinv(self, x_near: np.ndarray, x_rand: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
+        # expand using pseudoinverse on linearized system
+        A, B, c = self.linearize_at(x_near, self.u_bar, dt)
+
+        u = np.linalg.pinv(B)@(x_rand - A@x_near - c)
+
+        if u < self.input_limits[0][0]: u[0] = self.input_limits[0][0]
+        if u > self.input_limits[0][1]: u[0] = self.input_limits[0][1]
+
+        # the state has to be actually reachable so I step on the real environment with the systems's dt
+        iters = int(dt//self.dt)
+
+        states = np.zeros((iters,self.x_dim))
+        controls = u
+        x = x_near
+        for i in range(iters):
+
+            x = self.step(x, u, self.dt)
+            states[i] = x
+        
+        return states, controls
 
