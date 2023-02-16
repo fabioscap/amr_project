@@ -8,6 +8,7 @@ import pypolycontain as pp
 import qpsolvers
 from matplotlib import collections as mc
 import cv2
+import matplotlib.pyplot as plt
 
 def normalize(angle):
     return np.arctan2(np.sin(angle), np.cos(angle))
@@ -161,7 +162,6 @@ class AABB: # axis aligned bounding box
                     fill=False,lw=1))
         return plot
         
-
 def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.4,N=20,epsilon=0.001,ax=None, convex_hull=False):
     v,w=AH_polytope_vertices(polytope,N=N,epsilon=epsilon, solver="osqp")
     try:
@@ -218,31 +218,15 @@ def edit_video(path,N):
     out.release()
     return out
 
-
-def plot_plan(plan,seed,save_video=False, goal_x=10):
-    import os
-    import random
-    import matplotlib.pyplot as plt
-    dir = os.getcwd() 
- 
-    dir += '/trajectories/'+str(seed)
-
-    if os.path.exists(dir):
-        name_rnd = '_v'+str(random.randint(0, 100))
-        dir += name_rnd
-
-    dir +='/'
-    os.mkdir(dir)
-    i = 0
-    plt.figure()
-    for state in plan:
+def plot_plan(states, ax, save_video=False, goal_x=10):
+    for state in states:
         X = state[:5]
         path = dir +str(i)+ '_image'+'.png'
         if i % 1 ==0:
-            plt.gca().remove()
+            ax.remove()
             # plot
-            plt.axvline(x = goal_x, color = 'g', label = 'goal')
-            hopper_plot(X,plt, xlim=[-2,17], ylim=[0,5])
+            ax.axvline(x = goal_x, color = 'g', label = 'goal')
+            hopper_plot(X,ax, xlim=[-2,17], ylim=[0,5])
             plt.savefig(path)
         i+= 1
     if save_video:
@@ -255,12 +239,11 @@ def plot_plan(plan,seed,save_video=False, goal_x=10):
 import matplotlib.patches as patches
 from matplotlib.collections import PatchCollection
 
-def hopper_plot(X,plt,scaling_factor=0.7, alpha=0.5, xlim=[0,5], ylim=[0,5]):
+def hopper_plot(X,ax,scaling_factor=0.7, alpha=0.5, xlim=[0,5], ylim=[0,5]):
     x,y,theta,phi,r=X[0:5]
     # theta and phi are clockwise positive
     theta *= -1
     phi *= -1
-    ax = plt.gca()
     w_1=0.1*scaling_factor
     w_2=0.1*scaling_factor
     h=0.2*scaling_factor
@@ -296,4 +279,4 @@ def hopper_plot(X,plt,scaling_factor=0.7, alpha=0.5, xlim=[0,5], ylim=[0,5]):
                                     [up_right[1],up_left[1],down_left[1],down_right[1]]]).reshape(2,4).T, True)]
     ax.add_collection(PatchCollection(body,color=(0.2,0.2,0.8),alpha=alpha,edgecolor=None))
     ax.grid(color=(0,0,0), linestyle='--', linewidth=0.5)
-    return plt
+    return ax

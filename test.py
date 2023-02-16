@@ -206,12 +206,12 @@ def test(model_name, planner_name, tau, seed=None, max_nodes=1000):
     goal, plan = planner.plan( max_nodes )
 
     out = {}
-    out["model_name"] = model_name
+    out["model_name"]   = model_name
     out["planner_name"] = planner_name
-    out["seed"] = seed
-    out["planner"] = planner
-    out["model"]   = model
-    out["plan"]    = plan
+    out["seed"]         = seed
+    out["nodes"]        = list(planner.nodes())
+    out["dt"]           = model.dt
+    out["plan"]         = plan
 
     dir = os.getcwd() 
     filename = f"{model_name}_{planner_name}_{seed}.pickle"
@@ -226,6 +226,6 @@ def test(model_name, planner_name, tau, seed=None, max_nodes=1000):
     return dir+"/"+filename
 
 # test("hopper1d", "R3T", 0.04)
-pickle_name = test("pendulum", "R3T", 0.2, max_nodes=3000, seed=189988)
+pickle_name = test("hopper2d", "R3T", 0.1, max_nodes=3000)
 
 plot.plot(pickle_name)

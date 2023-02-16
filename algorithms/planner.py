@@ -94,6 +94,7 @@ class Planner:
             self.min_distance = distance
         if goal:
             plan = self.get_plan(self.initial_node)
+            print()
             return True, plan
         
         it = 0
@@ -142,8 +143,10 @@ class Planner:
                 if goal:
                     node_next.states = node_next.states[:i+1,:]
                     plan = self.get_plan(node_next)
+                    print()
                     return True, plan
 
+        print()
         return False, None
         
 

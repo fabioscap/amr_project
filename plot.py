@@ -32,13 +32,13 @@ def plot_pendulum(d):
 
     fig, ax = plt.subplots()
 
-    planner = d["planner"]
+    nodes = d["nodes"]
     plan    = d["plan"]
 
-    ax.set_title( f"{d['model_name']} {d['planner_name']} nodes: {d['planner'].n_nodes}")
+    ax.set_title( f"{d['model_name']} {d['planner_name']} nodes: {len(d['nodes'])}")
     ax.set_xlabel("x [m]")
     ax.set_ylabel("xdot [m/s]")
-    utils.plot(planner.nodes(), ax, plot_all=True, polytopes=False)
+    utils.plot(nodes, ax, plot_all=True, polytopes=False)
     if plan is not None: utils.plot (plan, ax, plot_all=True, last_color="lime", int_color="olive", polytopes=False, lw=3)
     plt.savefig(dir+folder_name+"/nodes.png")
     plt.close()
@@ -55,7 +55,7 @@ def plot_pendulum(d):
             controls.append(node.controls[i,:])
 
 
-    T = np.arange(0, len(states)) * d["model"].dt
+    T = np.arange(0, len(states)) * d["dt"]
 
     states   = np.array(states)
     controls = np.array(controls)
@@ -82,6 +82,80 @@ def plot_pendulum(d):
     return
 
 def plot_hopper2d(d):
+    dir = os.getcwd()
+    dir += "/trajectories/"
+
+    folder_name = f"{d['model_name']}_{d['planner_name']}_{d['seed']}"
+    if os.path.exists(dir+folder_name):
+        name_rnd = '_v'+str(random.randint(0, 100))
+        folder_name += name_rnd
+    os.mkdir(dir+folder_name)
+
+    fig, ax = plt.subplots()
+
+    nodes = d["nodes"]
+    plan = d["plan"]
+    if plan == None:
+        return
+
+    states = []
+    controls = []
+    for node in plan:
+        for i in range(node.states.shape[0]):
+            states.append(node.states[i,:])
+            controls.append(node.controls[i,:])
+    states = np.array(states)
+    controls = np.array(controls)
+    T = np.arange(0, len(states)) * d["dt"]
+
+    fig, ax = plt.subplots()
+    ax.set_title( f"{d['model_name']} {d['planner_name']} nodes [x/y]: {len(d['nodes'])}")
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("y [m]")
+    utils.plot(nodes, ax, plot_all=True, polytopes=False)
+    if plan is not None: utils.plot (plan, ax, plot_all=True, last_color="lime", int_color="olive", polytopes=False, lw=3)
+    plt.savefig(dir+folder_name+"/nodes.png")
+    plt.close()
+
+    # plot x y
+    fig, (ax_x, ax_y) = plt.subplots(2, 1)
+    ax_x.plot(T, states[:,0], color="teal")
+    ax_y.plot(T, states[:,1])
+
+    ax_x.set_xlabel("t [s]")
+    ax_x.set_ylabel("x [m]")
+    ax_y.set_xlabel("t [s]")
+    ax_y.set_ylabel("y [m]")
+
+    plt.savefig(dir+folder_name+"/xy.png")
+    plt.close()
+
+    # plot xdot ydot
+    fig, (ax_x, ax_y) = plt.subplots(2, 1)
+    ax_x.plot(T, states[:,5], color="teal")
+    ax_y.plot(T, states[:,6])
+
+    ax_x.set_xlabel("t [s]")
+    ax_x.set_ylabel("xdot [m/s]")
+    ax_y.set_xlabel("t [s]")
+    ax_y.set_ylabel("ydot [m/s]")
+
+    plt.savefig(dir+folder_name+"/xydot.png")
+    plt.close()
+
+
+    fig, (ax_c0, ax_c1) = plt.subplots(2,1)
+
+    ax_c0.plot(T, controls[:,0], color="teal")
+    ax_c1.plot(T, controls[:,1])
+
+    ax_c0.set_xlabel("t [s]")
+    ax_c0.set_ylabel("tau [Nm]")
+    ax_c1.set_xlabel("t [s]")
+    ax_c1.set_ylabel("F [N]")
+
+    plt.savefig(dir+folder_name+"/input.png")
+    plt.close()
 
     return
 
@@ -101,7 +175,7 @@ def plot_hopper1d(d):
     planner = d["planner"]
     plan    = d["plan"]
 
-    ax.set_title( f"{d['model_name']} {d['planner_name']} nodes: {d['planner'].n_nodes}")
+    ax.set_title( f"{d['model_name']} {d['planner_name']} nodes: {len(d['nodes'])}")
     ax.set_xlabel("x [m]")
     ax.set_ylabel("xdot [m/s]")
     utils.plot(planner.nodes(), ax, plot_all=True, polytopes=False)
@@ -121,7 +195,7 @@ def plot_hopper1d(d):
             controls.append(node.controls[i,:])
 
 
-    T = np.arange(0, len(states)) * d["model"].dt
+    T = np.arange(0, len(states)) * d["dt"]
 
     states   = np.array(states)
     controls = np.array(controls)
@@ -149,6 +223,6 @@ def plot_hopper1d(d):
 
 
 if __name__ == "__main__":
-    picklename="pendulum_R3T_602464.pickle"
+    picklename="hopper2d_R3T_837829.pickle"
     plot(picklename)
 
