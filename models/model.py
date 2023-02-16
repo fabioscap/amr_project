@@ -18,7 +18,7 @@ class Model:
         # both rely on distance metric which is not the best with hybrid systems
         # samples looks like the best because it does not do linearization thus it can handle
         # mode switches. It does discretize input space however...
-        self.expand_toward = self.expand_toward_samples
+        self.expand_toward = self.expand_toward_pinv
         # self.expand_toward = self.expand_toward_pinv
 
     def step(self, x: np.ndarray, u: np.ndarray, dt: float)->np.ndarray:

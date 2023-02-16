@@ -146,13 +146,14 @@ class Pendulum(Model):
         states = []
         controls = []
 
-        for u in self.motion_primitives:
+        for mp in self.motion_primitives:
             s = np.zeros((iters,self.x_dim))
-
+            u = np.zeros((iters,self.u_dim))
             x_r = x
             for i in range(iters):
                 x_r = self.step(x_r, u, self.dt)
                 s[i] = x_r
+                u[i] = mp
 
             states.append(s)
             controls.append(u)
