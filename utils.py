@@ -163,7 +163,7 @@ class AABB: # axis aligned bounding box
         
 
 def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.4,N=20,epsilon=0.001,ax=None, convex_hull=False):
-    v,w=AH_polytope_vertices(polytope,N=N,epsilon=epsilon)
+    v,w=AH_polytope_vertices(polytope,N=N,epsilon=epsilon, solver="osqp")
     try:
         v=v[ConvexHull(v).vertices,:]
     except:
@@ -219,7 +219,7 @@ def edit_video(path,N):
     return out
 
 
-def plot_plan(plan,seed,save_video=False):
+def plot_plan(plan,seed,save_video=False, goal_x=10):
     import os
     import random
     import matplotlib.pyplot as plt
@@ -241,6 +241,7 @@ def plot_plan(plan,seed,save_video=False):
         if i % 1 ==0:
             plt.gca().remove()
             # plot
+            plt.axvline(x = goal_x, color = 'g', label = 'goal')
             hopper_plot(X,plt, xlim=[-2,17], ylim=[0,5])
             plt.savefig(path)
         i+= 1

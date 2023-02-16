@@ -8,13 +8,13 @@ import matplotlib.pyplot as plt
 
 class Node:
     def __init__(self, states:np.ndarray, # an array of dimension   (n, dim_x)
-                       u:np.ndarray, # an array of dimension (m, dim_u)
+                       controls:np.ndarray, # an array of dimension (n, dim_u)
                        parent=None, 
                        cost=0.,
                        dt = None):
 
         self.states = states
-        self.u = u
+        self.controls = controls
 
         self.parent:Node = parent
 
@@ -35,14 +35,13 @@ class Node:
         
     def add_child(self, child):
         if child in self.children:
-            print(child.state)
             return False
         else:
             self.children.add(child)
             return True
 
     def __hash__(self) -> int:
-        return hash(str(np.hstack((self.states.flatten(), self.u.flatten()))))
+        return hash(str(np.hstack((self.states.flatten(), self.controls.flatten()))))
     
     def __eq__(self, __o: object) -> bool:
         return self.__hash__() == __o.__hash__()

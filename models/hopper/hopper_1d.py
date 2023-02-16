@@ -175,7 +175,7 @@ class Hopper1D(Model):
                 x_ = self.step(x_,...,self.dt)
                 no_inputs.append(x_)
 
-            return np.array(no_inputs).reshape(-1,2)
+            return np.array(no_inputs).reshape(-1,self.x_dim), np.zeros((len(no_inputs),self.u_dim))
 
         else:
             return super().ffw(x)
@@ -203,12 +203,13 @@ class Hopper1D(Model):
         iters = int(dt//self.dt)
 
         states = np.zeros((iters,self.x_dim))
-        controls = u
+        controls = np.zeros((iters, self.u_dim))
         x = x_near
         for i in range(iters):
 
             x = self.step(x, u, self.dt)
             states[i] = x
+            controls[i] = u
         
         return states, controls
 

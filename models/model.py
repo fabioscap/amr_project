@@ -59,7 +59,7 @@ class Model:
         # for hybrid systems especially it can be useful to skip phases in which you
         # do not have inputs available to avoid cluttering the sample space with
         # nodes that cannot be further expanded
-        return np.array([]).reshape(-1,self.x_dim)
+        return np.array([]).reshape(-1,self.x_dim), np.array([]).reshape(-1,self.u_dim)
     
     def calc_input(self, frm: np.ndarray, to: np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
         # hybrid systems override this

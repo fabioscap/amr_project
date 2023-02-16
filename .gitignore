@@ -1,2 +1,4 @@
 _env
 __pycache__
+**/*.pickle*
+trajectories/*/

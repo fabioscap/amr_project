@@ -1,62 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-import utils
-from hopper_2d_viz import hopper_plot
+import utils, plot
 
 from algorithms import RRT, RGRRT, R3T
 from models import Pendulum, Hopper1D, Hopper2D
-
-import matplotlib.style as mplstyle
-mplstyle.use(['dark_background', 'ggplot', 'fast'])
-
-
-def plot_pendulum(step_size=0.01, ax= None):
-    if ax is None:
-        fig, ax = plt.subplots()
-
-    p = Pendulum(b=0.1, dt=step_size)
-
-    x = np.array([1.5, 0.0])
-    u = np.array([1.0])
-    plt.scatter(x[0],x[1],c="red")
-    thetas = [x[0]]
-    dthetas = [x[1]]
-
-    seconds = 10
-    for i in range(int(seconds//step_size)):
-        x = p.step(x, u, step_size)
-        thetas.append(x[0])
-        dthetas.append(x[1])
-
-    ax.plot(thetas,dthetas)
-    ax.set_xlabel("theta")
-    ax.set_ylabel("dtheta")
-    ax.set_ylim([-10,10])
-
-
-def plot_hopper_1D(step_size=0.01, t=10):
-    p = Hopper1D(dt=step_size)
-
-    x = np.array([2, 0.0])
-    u = np.array([40.0])
-    plt.scatter(x[0],x[1],c="red")
-    h = [x[0]]
-    dh = [x[1]]
-    for i in range(int(t//step_size)):
-        if x[1] < 0:
-            u = np.array([0.0])
-        else:
-            u = np.array([40.0]) 
-        x = p.step(x, u, step_size)
-        h.append(x[0])
-        dh.append(x[1])
-
-    plt.plot(h,dh)
-
-    plt.xlabel("h")
-    plt.ylabel("dh")
-
 
 def test_calc_input(ax):
     p = Pendulum(dt=.001)
@@ -94,23 +42,6 @@ def test_calc_input(ax):
 
     plt.show()
 
-def plot_hopper_2d():
-    h = Hopper2D(dt=0.01)
-    x = np.array([0,1,0,0,1.5,1,0,0,0,0,0])
-    x_ = x.copy()
-    u = np.array([0,0])
-    plt.figure()
-    for i in range(1000):
-        x = h.step(x, u)
-        if i % 10 == 0:
-            hopper_plot(x[:5], plt)
-            plt.draw()
-            plt.pause(0.1)
-
-        # print(np.linalg.norm(x_j- x_j_))
-
-    plt.show()
-
 def test_rrt_pendulum(seed=None, ax=None):
     if seed is  None: seed = np.random.randint(0,10**6)
     np.random.seed(seed)
@@ -125,7 +56,6 @@ def test_rrt_pendulum(seed=None, ax=None):
         if plan is not None: utils.plot (plan, ax, plot_all=True, last_color="lime", int_color="olive", lw=3)
     print(seed)
     plt.show()
-
 
 def test_rgrrt_pendulum(seed=None,ax=None):
     if seed is  None: seed = np.random.randint(0,10**6)
@@ -208,39 +138,94 @@ def test_r3t_hopper_2d(seed=None,ax=None, animate=False):
 
     utils.plot(planner.nodes(), ax, plot_all=True, polytopes=False)
     print(goal)
+
+    import pickle, os, random
+    if plan is not None:
+        out = {"plan":plan,
+               "dt": p.dt,
+               "tau": planner.tau,
+               "goal": p.goal_states}
+        
+        dir = os.getcwd() 
+        dir += '/trajectories/'+str(seed)
+
+        if os.path.exists(dir):
+            name_rnd = '_v'+str(random.randint(0, 100))
+            dir += name_rnd
+
+        dir +='/'
+        os.mkdir(dir)
+        with open(dir+"out.pickle", "wb") as out_file:
+            pickle.dump(out, out_file)
+
+    """
     if ax is not None:
         utils.plot(planner.nodes(), ax, plot_all=True, polytopes=False)
         if plan is not None: 
             utils.plot (plan, ax, plot_all=True, last_color="lime", int_color="olive", polytopes=False)
             if animate:
                 states = []
+                controls = []
                 for node in plan:
                     for i in range(node.states.shape[0]):
                         states.append(node.states[i,:])
+                        controls.append(node.u)
                         assert(node.states[i,:].shape == (10,))
 
             print(len(states), states[0].shape)
-            utils.plot_plan(states, seed, save_video=True)
+            utils.plot_plan(states, seed, save_video=True, goal_x=p.goal_states[0][0])
+    """
 
     print(seed)
     plt.show()
 
+def test(model_name, planner_name, tau, seed=None, max_nodes=1000):
+    import os, random, pickle
+    if seed is  None: seed = np.random.randint(0,10**6)
+    np.random.seed(seed)
 
-fig,ax = plt.subplots()
-#test_calc_input(ax=ax)
+    if model_name == "pendulum":
+        model = Pendulum()
+    elif model_name == "hopper1d":
+        model = Hopper1D()
+    elif model_name == "hopper2d":
+        model = Hopper2D()
+    else:
+        print("No model named ", model_name)
+        return
+    if planner_name == "RRT":
+        planner = RRT(model, tau)
+    elif planner_name == "RGRRT":
+        planner = RGRRT(model, tau)
+    elif planner_name == "R3T":
+        planner = R3T(model, tau)
+    else:
+        print("no planner named ", planner_name)
+        return
 
-test_r3t_hopper_2d(ax=ax, animate=True)
-#test_r3t_hopper_1d(ax=ax)
-#test_calc_input(ax)
-"""
-h = Hopper2D(dt=0.005)
+    goal, plan = planner.plan( max_nodes )
 
-x = h.initial_state.copy()
-for j in range(1000):
-    plt.scatter(x[0],x[1])
-    x = h.step(x, np.array([0, 2000]), dt=h.dt)
+    out = {}
+    out["model_name"] = model_name
+    out["planner_name"] = planner_name
+    out["seed"] = seed
+    out["planner"] = planner
+    out["model"]   = model
+    out["plan"]    = plan
 
-plt.show()
-"""
+    dir = os.getcwd() 
+    filename = f"{model_name}_{planner_name}_{seed}.pickle"
 
-# 263916
+    if os.path.exists(dir+"/"+filename):
+        name_rnd = '_v'+str(random.randint(0, 100))
+        filename += name_rnd
+
+    with open(dir+"/"+filename, "wb") as out_file:
+        pickle.dump(out, out_file)
+
+    return dir+"/"+filename
+
+# test("hopper1d", "R3T", 0.04)
+pickle_name = test("pendulum", "R3T", 0.2, max_nodes=3000, seed=189988)
+
+plot.plot(pickle_name)

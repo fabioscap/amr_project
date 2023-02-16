@@ -25,9 +25,12 @@ class R3T(Planner):
         if len(states.shape) == 1:
             # if it's just a single state then reshape it to still be a collection of states
             states = states.reshape(1,-1)
+
         if controls is None:
             cost = 0
-            controls = np.empty((1,self.u_dim))
+            controls = np.zeros((self.u_dim,))
+        if len(controls.shape) == 1:
+            controls = controls.reshape(1,-1)
 
         if cost is None:
             cost = np.sum( np.linalg.norm(controls) ) # sum the cost of every control
@@ -85,7 +88,11 @@ class R3T(Planner):
 
         states, controls = self.model.calc_input(frm=x_near, to=point, dt=self.tau)
         
-        states = np.vstack(( states , self.model.ffw(states[-1]) ))
+
+        ffw = self.model.ffw(states[-1])
+
+        states = np.vstack(( states , ffw[0] ))
+        controls = np.vstack(( controls , ffw[1] ))
 
         x_next = states[-1]
 
@@ -94,7 +101,6 @@ class R3T(Planner):
 
 
         if self.thr != None and np.linalg.norm(x_next - closest_state) < self.thr:
-            print("fanculooooo")
             # there is already a node at this location
             # TODO consider rewiring if the cost is less
             return None, None

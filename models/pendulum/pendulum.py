@@ -11,7 +11,7 @@ class Pendulum(Model):
                        initial_state = np.array([0,0]), 
                        goal_states   = [np.array([np.pi, 0.0]), np.array([-np.pi, 0])],
                        input_limits = np.array([-1, 1]).reshape(1,-1),
-                       dt=0.01,
+                       dt=0.05,
                        eps_goal=0.05):
         super().__init__(initial_state, input_limits, dt)
 
@@ -114,18 +114,12 @@ class Pendulum(Model):
         iters = int(dt//self.dt)
 
         states = np.zeros((iters,self.x_dim))
-        controls = u
+        controls = np.zeros((iters, self.u_dim))
         x = x_near
         for i in range(iters):
-            A, B, c = self.linearize_at(x, self.u_bar, self.dt)
-
-            u = np.linalg.pinv(B)@(x_rand - A@x - c)
-
-            if u < self.input_limits[0][0]: u[0] = self.input_limits[0][0]
-            if u > self.input_limits[0][1]: u[0] = self.input_limits[0][1]
-
             x = self.step(x, u, self.dt)
             states[i] = x
+            controls[i] = u
         
         return states, controls
 

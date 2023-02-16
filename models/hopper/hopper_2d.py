@@ -17,7 +17,7 @@ class Hopper2D(Model):
                  initial_state=np.array([0., 1., 0, 0, 1.5, 0, 0., 0., 0., 0.]), 
                  input_limits=np.array([[-500,500], [1.4e3,2e3]]), 
                  goal_states = [np.array([10,1.,0.,0.,1.5,0,0.,0.,0.,0., 0.])],
-                 dt=0.001,
+                 dt=0.005,
                  fast_forward=True):
         super().__init__(initial_state, input_limits, dt)
 
@@ -246,15 +246,14 @@ class Hopper2D(Model):
         if self.fast_forward:
                     
             no_inputs = []
-
             x_ = x.copy()
             mode = self.get_mode(x_)
             while mode == self.FLIGHT_ASCEND or mode == self.FLIGHT_DESCEND:
-                x_ = self.step(x_,self.u_bar,self.dt)
+                x_ = self.step(x_,None,self.dt)
                 no_inputs.append(x_)
                 mode = self.get_mode(x_)
 
-            return np.array(no_inputs).reshape(-1,self.x_dim)
+            return np.array(no_inputs).reshape(-1,self.x_dim), np.zeros((len(no_inputs), self.u_dim))
 
         else:
             return super().ffw(x)
@@ -283,11 +282,12 @@ class Hopper2D(Model):
         iters = int(dt//self.dt)
 
         states = np.zeros((iters,self.x_dim))
-        controls = u
+        controls = np.zeros((iters, self.u_dim))
         x = x_near.copy()
         for i in range(iters):
             x = self.step(x, u, self.dt)
             states[i] = x
+            controls[i] = u
         
         return states, controls
     
