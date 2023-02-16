@@ -24,43 +24,43 @@ class Model:
     def step(self, x: np.ndarray, u: np.ndarray, dt: float)->np.ndarray:
         raise NotImplementedError()
 
-    def goal_check(self, x:np.ndarray)->tuple[bool, float]:
+    def goal_check(self, x:np.ndarray):#->tuple[bool, float]:
         raise NotImplementedError()
     
     def sample(self, **kwargs)->np.ndarray:
         raise NotImplementedError()
 
-    def expand_toward(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
+    def expand_toward(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float):#->tuple[np.ndarray, np.ndarray]:
         raise NotImplementedError()
     
-    def linearize_at(self, x:np.ndarray, u:np.ndarray, dt:float)->tuple[np.ndarray,  # A, shape (x_dim, x_dim)
-                                                                        np.ndarray,  # B, shape (x_dim, u_dim)
-                                                                        np.ndarray]: # c, shape (x_dim, )
+    def linearize_at(self, x:np.ndarray, u:np.ndarray, dt:float):#->tuple[np.ndarray,  # A, shape (x_dim, x_dim)
+                                                                       # np.ndarray,  # B, shape (x_dim, u_dim)
+                                                                        #np.ndarray]: # c, shape (x_dim, )
         raise NotImplementedError()
     
-    def get_reachable_sampled(self, x:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
+    def get_reachable_sampled(self, x:np.ndarray, dt:float):#->tuple[np.ndarray, np.ndarray]:
         # returns a set of sampled points associated with the respective inputs
         # these points are generatet by stepping in the dynamics starting from x and applying
         # a predefined discrete set of inputs
         raise NotImplementedError()
     
-    def get_reachable_AH(self, x:np.ndarray, dt:float, convex_hull:bool=False)->list[tuple[np.ndarray, pp.AH_polytope]]:
+    def get_reachable_AH(self, x:np.ndarray, dt:float, convex_hull:bool=False):#->list[tuple[np.ndarray, pp.AH_polytope]]:
         # get reachable set approximation using AH-polytopes
         # returns the a keypoint and a polytope for each reachable polytope
         raise NotImplementedError()
 
 
-    def expand_toward_pinv(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
+    def expand_toward_pinv(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float):#->tuple[np.ndarray, np.ndarray]:
         raise NotImplementedError()
-    def expand_toward_samples(self, x_near: np.ndarray, x_rand: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
+    def expand_toward_samples(self, x_near: np.ndarray, x_rand: np.ndarray, dt: float):# -> tuple[np.ndarray, np.ndarray]:
         raise NotImplementedError()
     
-    def ffw(self, x: np.ndarray)->list[np.ndarray]:
+    def ffw(self, x: np.ndarray):#->list[np.ndarray]:
         # for hybrid systems especially it can be useful to skip phases in which you
         # do not have inputs available to avoid cluttering the sample space with
         # nodes that cannot be further expanded
         return np.array([]).reshape(-1,self.x_dim), np.array([]).reshape(-1,self.u_dim)
     
-    def calc_input(self, frm: np.ndarray, to: np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
+    def calc_input(self, frm: np.ndarray, to: np.ndarray, dt:float):#->tuple[np.ndarray, np.ndarray]:
         # hybrid systems override this
         return self.expand_toward_pinv(x_near=frm, x_rand=to, dt=dt)

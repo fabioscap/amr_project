@@ -177,7 +177,7 @@ class Hopper2D(Model):
         return dx
 
 
-    def step(self, x: np.ndarray, u: np.ndarray, dt: float) -> np.ndarray:
+    def step(self, x: np.ndarray, u: np.ndarray, dt: float) :#-> np.ndarray:
         start_mode = self.get_mode(x)
 
         x_ = x.reshape(self.x_dim, 1)
@@ -199,7 +199,7 @@ class Hopper2D(Model):
 
         return x_next
     
-    def linearize_at(self, x: np.ndarray, u: np.ndarray, dt: float, mode=None) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def linearize_at(self, x: np.ndarray, u: np.ndarray, dt: float, mode=None) :#-> tuple[np.ndarray, np.ndarray, np.ndarray]:
         if mode == None:
             mode = self.get_mode(x)
 
@@ -234,7 +234,7 @@ class Hopper2D(Model):
 
         return A,B,c
 
-    def goal_check(self, x: np.ndarray) -> tuple[bool, float]:
+    def goal_check(self, x: np.ndarray) :#-> tuple[bool, float]:
         for goal_state in self.goal_states:
             delta = x[0] - goal_state[0]
             if delta > 0:
@@ -242,7 +242,7 @@ class Hopper2D(Model):
             
         return False, np.abs(delta)
     
-    def ffw(self, x: np.ndarray) -> list[np.ndarray]:
+    def ffw(self, x: np.ndarray) :#-> list[np.ndarray]:
         if self.fast_forward:
                     
             no_inputs = []
@@ -258,7 +258,7 @@ class Hopper2D(Model):
         else:
             return super().ffw(x)
         
-    def get_reachable_AH(self, x: np.ndarray, dt: float, convex_hull: bool = False) -> list[tuple[np.ndarray, pp.AH_polytope]]:
+    def get_reachable_AH(self, x: np.ndarray, dt: float, convex_hull: bool = False) :#-> list[tuple[np.ndarray, pp.AH_polytope]]:
         A, B, c = self.linearize_at(x, self.u_bar, dt)
         x_next = (A@x + B@self.u_bar + c)
         G = (B@np.diag(self.u_diff)).reshape(self.x_dim, self.u_dim)
@@ -267,7 +267,7 @@ class Hopper2D(Model):
             AH = convex_hull_of_point_and_polytope(x.reshape(-1,1), AH)
         return [(x_next, AH)]
     
-    def expand_toward_pinv(self, x_near: np.ndarray, x_rand: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
+    def expand_toward_pinv(self, x_near: np.ndarray, x_rand: np.ndarray, dt: float) :#-> tuple[np.ndarray, np.ndarray]:
         # expand using pseudoinverse on linearized system
         A, B, c = self.linearize_at(x_near, self.u_bar, dt)
 
@@ -292,7 +292,7 @@ class Hopper2D(Model):
         return states, controls
     
 
-    def sample(self, **kwargs) -> np.ndarray:
+    def sample(self, **kwargs) :#-> np.ndarray:
         if np.random.rand(1)<0.5:
             return self.hip_coordinates_sampler()
         else:

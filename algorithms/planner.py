@@ -40,13 +40,13 @@ class Node:
             self.children.add(child)
             return True
 
-    def __hash__(self) -> int:
+    def __hash__(self) :#-> int:
         return hash(str(np.hstack((self.states.flatten(), self.controls.flatten()))))
     
-    def __eq__(self, __o: object) -> bool:
+    def __eq__(self, __o: object) :#-> bool:
         return self.__hash__() == __o.__hash__()
 
-    def __repr__(self) -> str:
+    def __repr__(self) :#-> str:
         return f"[{self.state}, {self.u}]"
     
 class Planner:
@@ -78,9 +78,9 @@ class Planner:
         
         return nodes
     
-    def add_node(self, states, controls = None, cost=None, parent:Node=None)->Node:
+    def add_node(self, states, controls = None, cost=None, parent:Node=None):#->Node:
         raise NotImplementedError()
-    def expand(self, x_rand: np.ndarray)-> tuple[np.ndarray, np.ndarray]:
+    def expand(self, x_rand: np.ndarray):#-> tuple[np.ndarray, np.ndarray]:
         raise NotImplementedError()
 
     def plan(self, max_nodes):
@@ -203,7 +203,7 @@ class PolytopeTree:
 
         self.kp_id_to_bbox_id[kp_id] = bbox_id
 
-    def nearest_polytope(self, query: np.ndarray)->pp.AH_polytope:
+    def nearest_polytope(self, query: np.ndarray):#->pp.AH_polytope:
         
         nearest_kp_id = self.kpoint_tree.nearest(query)
 

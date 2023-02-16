@@ -51,7 +51,7 @@ class Pendulum(Model):
         return x + self.f(x,u)*dt
 
     
-    def goal_check(self, x: np.ndarray) -> tuple[bool, float]:
+    def goal_check(self, x: np.ndarray) :#-> tuple[bool, float]:
         
         min_dist = np.inf
         goal = False
@@ -68,7 +68,7 @@ class Pendulum(Model):
         return goal, min_dist
 
 
-    def linearize_at(self, x: np.ndarray, u: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def linearize_at(self, x: np.ndarray, u: np.ndarray, dt: float) :#-> tuple[np.ndarray, np.ndarray, np.ndarray]:
         A = np.zeros((self.x_dim, self.x_dim))
         B = np.zeros((self.x_dim, self.u_dim))
         c = np.zeros(self.x_dim)
@@ -88,7 +88,7 @@ class Pendulum(Model):
 
         return A, B, c
 
-    def sample(self, **kwargs) -> np.ndarray:
+    def sample(self, **kwargs) :#-> np.ndarray:
         goal_bias = np.random.rand(1)
         if goal_bias < 0.3:
             if goal_bias < 0.15: return self.goal_states[0]
@@ -101,7 +101,7 @@ class Pendulum(Model):
 
             return rnd
     
-    def expand_toward_pinv(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
+    def expand_toward_pinv(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float):#->tuple[np.ndarray, np.ndarray]:
         # expand using pseudoinverse on linearized system
         A, B, c = self.linearize_at(x_near, self.u_bar, dt)
 
@@ -123,7 +123,7 @@ class Pendulum(Model):
         
         return states, controls
 
-    def expand_toward_samples(self, x_near: np.ndarray, x_rand: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
+    def expand_toward_samples(self, x_near: np.ndarray, x_rand: np.ndarray, dt: float) :#-> tuple[np.ndarray, np.ndarray]:
         states, controls = self.get_reachable_sampled(x_near, dt)
         
         min_distance = np.inf
@@ -140,7 +140,7 @@ class Pendulum(Model):
         return closest_state, closest_u
 
 
-    def get_reachable_sampled(self, x: np.ndarray, dt: float) -> tuple[np.ndarray, np.ndarray]:
+    def get_reachable_sampled(self, x: np.ndarray, dt: float) :#-> tuple[np.ndarray, np.ndarray]:
 
         iters = int(dt//self.dt)
         states = []
