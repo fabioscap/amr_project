@@ -1,155 +1,97 @@
-from algorithms.rrt.rrt import StateTree, Node
+from algorithms.planner import Planner,StateTree, Node
 import numpy as np
+from models.model import Model
 
-class RGRRT:
-    def __init__(self, initial_state, goal_state, eps, state_bounds, get_reachable_func, tau):
-        self.dim = initial_state.shape[0]
-        self.initial_state = initial_state
-        self.goal_state = goal_state
-        self.eps = eps
-        self.state_bounds = state_bounds # shape(dim,2)
 
-        self.state_tree = StateTree(self.dim)
+class RGRRT(Planner):
+    def __init__(self, model: Model, tau, thr=1e-9, ax=None):
+        super().__init__(model, tau, thr, ax)
 
-        # store the reachable states for every node here
-        self.reachable_tree = StateTree(self.dim)
+        # we need an additional tree in which we store sampled reachable points
+        self.reachable_tree = StateTree(self.x_dim)
 
-        self.get_reachable_func = get_reachable_func
-        self.tau = tau
-        # maps
-        self.state_to_node = {} # from state_id to node
-        self.reachable_to_node = {} # form reachable_id to (node, u)
+        # and an additional map to link the reachable points to their nodes
+        # (and the dynamic trajectory that generated them)
+        self.r_id_to_node: dict[int, tuple[Node, np.ndarray, np.ndarray]] = {}
 
-        # initialization for the first state
-        self.initial_node = Node(initial_state)
-        self.initial_state_id = hash(str(self.initial_state))
-        self.state_to_node[self.initial_state_id] = self.initial_node
 
-        self.state_tree.insert(self.initial_state_id, self.initial_state)
+    def add_node(self, states, controls = None, cost=None, parent:Node=None):
+        if len(states.shape) == 1:
+            # if it's just a single state then reshape it to still be a collection of states
+            states = states.reshape(1,-1)
+
+        if controls is None:
+            cost = 0
+            controls = np.zeros((self.u_dim,))
+        if len(controls.shape) == 1:
+            controls = controls.reshape(1,-1)
+
+        if cost is None:
+            cost = np.sum( np.linalg.norm(controls) ) # sum the cost of every control
+        node = Node(states, controls, parent, cost, self.model.dt)
+
+        # manage the parent's children
+        if parent is not None:
+            is_new = parent.add_child(node)
+            assert is_new
         
-        initial_reachable, controls = self.get_reachable_func(self.initial_state, self.tau)
-        for reachable, control in zip(initial_reachable, controls):
-            reachable_id = hash(str(reachable))
-            self.reachable_to_node[reachable_id] = (self.initial_node, control)
-            self.reachable_tree.insert(reachable_id, reachable)
-        ###
+        self.n_nodes += 1
+
+        state_id = self.state_tree.insert(states[-1])
+        self.id_to_node[state_id] = node
 
 
-        self.min_distance = np.inf
+        # when you add a new node also remember
+        # to compute their reachable points and put them into the tree
+        x_r, u_r = self.model.get_reachable_sampled(states[-1],self.tau)
 
-    # sample q_rand uniformly
-    def sample_state(self):
-        rnd = np.random.rand(self.dim)
+        for i in range(len(x_r)):
+            # x_r represents the whole trajectory to get to the reachable state
+            x_r_i = x_r[i][-1]
 
-        # normalize in bounds [0,1]->[low,high]
-        for i in range(self.dim):
-            high = self.state_bounds[i,1]
-            low  = self.state_bounds[i,0]
-            rnd[i] = (high-low)*rnd[i] + low
-        
-        return rnd
-    
-    # find q_near
-    def nearest_neighbor(self, q_rand):
-        id_near, r_near = self.reachable_tree.nearest(q_rand)
+            x_r_i_id = self.reachable_tree.insert(x_r_i)
+            self.r_id_to_node[x_r_i_id] = (node, x_r[i], u_r[i])
 
-        node_near, u = self.reachable_to_node[id_near]
+        return node
 
-        q_near = node_near.state
-
-        if np.dot(r_near-q_rand,r_near-q_rand) < np.dot(q_near-q_rand,q_near-q_rand):
-            # r_near will be a new node with parent node_near
-            return r_near, node_near, u
-        else:
-            # discard the sampled point
-            return None, None, None
 
     
-    def expand(self, q_next, node_near, u):
+    def expand(self, x_rand):
+
+        # get the nearest reachable point
+        id_near = self.reachable_tree.nearest(x_rand)
+
+        node_near, states, controls = self.r_id_to_node[id_near]
+        x_near = node_near.state
+        r_near = states[-1]
+
+        # check if the expansion will be in the direction of x_rand
+        # if not, discard
+        if np.linalg.norm(x_rand-x_near) < np.linalg.norm(x_rand-r_near):
+            return None, None
+
+
+        # check for fast forward possibility
+        ffw = self.model.ffw(states[-1])
+
+        states = np.vstack(( states , ffw[0] ))
+        controls = np.vstack(( controls , ffw[1] ))
+
+        x_next: np.ndarray = states[-1]
+
+        closest_idx = self.state_tree.nearest(x_next)
+        closest_state = self.id_to_node[closest_idx].state
+
+        if np.linalg.norm(x_next - closest_state) < self.thr:
+            # there is already a node at this location
+            # TODO consider rewiring if the cost is less
+            return None, None
+        
+        cost = np.sum( np.linalg.norm(controls) )
 
         # add node to tree
-        node_next = Node(q_next, u, node_near, cost=np.linalg.norm(u))
+        node_next = self.add_node(states, controls, cost, node_near)
 
-        # add child ot parent
-        new_child = node_near.add_child(node_next)
-        if new_child:
-            # add state to database
-            state_id = hash(str(q_next))
-            self.state_tree.insert(state_id, q_next)
-
-            # update maps
-            self.state_to_node[state_id] = node_next
-
-            reachable, controls = self.get_reachable_func(q_next, self.tau)
-            for reachable, control in zip(reachable, controls):
-                reachable_id = hash(str(reachable))
-                self.reachable_to_node[reachable_id] = (node_next, control)
-                self.reachable_tree.insert(reachable_id, reachable)
-
-            return node_next
-        else: 
-            return None
-
-    def plan(self, max_nodes, plt=None):
-
-        goal = self.goal_check(self.initial_state, self.goal_state)
-        if goal:
-            print("goal")
-            return True
-
-        for node in range(max_nodes):
-            if node%1000 == 0:
-                print(node)
-
-            q_rand = self.sample_state()
-
-            r_near, node_near, u = self.nearest_neighbor(q_rand)
-            if r_near is None:
-                node -= 1 # iteration does not count
-                          # because it did not expand tree
-                continue
-
-            node_next = self.expand(r_near, node_near, u)
-            if node_next is None:
-                node -= 1
-                continue
-            q_next = node_next.state
-            if plt != None:
-                q_parent = node_next.parent.state
-                plt.scatter(q_next[0], q_next[1], c="blue")
-                plt.plot([q_parent[0], q_next[0]],[q_parent[1], q_next[1]], c="blue")
+        return node_next, node_near
 
 
-            goal = self.goal_check(q_next, self.goal_state)
-
-            if goal:
-                print("goal")
-                print(self.min_distance)
-                return True, node_next, node
-        print("no goal")
-        print(self.min_distance)
-        return False, None, node
-    
-    def get_plan(self, node: Node, plt=None):
-        plan = [node]
-        q = node.state
-        while node.parent != None:
-            plan = [node.parent] + plan
-
-            node = node.parent
-
-            if plt != None:
-                q_next = node.state
-
-                plt.plot([q[0],q_next[0]],[q[1],q_next[1]],c="red")
-                q = q_next
-
-        return plan
-
-    def goal_check(self, q, q_goal):
-        delta = q-q_goal
-
-        norm = np.linalg.norm(delta)
-        if norm < self.min_distance:
-            self.min_distance = norm
-        return norm < self.eps

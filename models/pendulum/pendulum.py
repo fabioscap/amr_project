@@ -1,153 +1,170 @@
 import numpy as np
 from utils import normalize, convex_hull_of_point_and_polytope
 import pypolycontain as pp
+from models.model import Model
+import pypolycontain as pp
 
-class Pendulum:
+
+class Pendulum(Model):
     
-    motion_primitives = {1,0.0,-1}
-    # motion_primitives = {1.0}
-
-    x_dim = 2
-    u_dim = 1
-
     def __init__(self, m=1, m_l=0, l=0.5, g=9.81, b=0.1, 
-                 initial_state = np.array([0,0]), 
-                 dt=0.001):
-        
-        self.dt = dt
+                       initial_state = np.array([0,0]), 
+                       goal_states   = [np.array([np.pi, 0.0]), np.array([-np.pi, 0])],
+                       input_limits = np.array([-1, 1]).reshape(1,-1),
+                       dt=0.05,
+                       eps_goal=0.05):
+        super().__init__(initial_state, input_limits, dt)
+
+        self.x_dim = 2
+        self.u_dim = 1
 
         self.m = m
         self.m_l = m_l
         self.l = l
         self.g = g
         self.b = b
-        self.initial_state = initial_state
-        self.input_limits = np.array([min(self.motion_primitives), max(self.motion_primitives)])
-        
-        self.u_bar =  ( self.input_limits[0] + self.input_limits[1] )/2
-        self.u_diff = ( self.input_limits[1] - self.input_limits[0] )/2
-
         self.I = m*l**2 + (m_l*l**2)/12
 
-    def f(self, q, u):
-        dq = np.zeros(2)
+        self.goal_states = goal_states
 
-        t = -(self.m*self.g*self.l*np.sin(q[0]) + self.m_l*self.g*self.l*np.sin(q[0])/2)
 
-        dq[0] = q[1]
-        dq[1] = (1/self.I) * (t + u - self.b*q[1])
+        self.motion_primitives = [self.input_limits[:,0],
+                                  self.u_bar,
+                                  self.input_limits[:,1]]
 
-        return dq.reshape(-1)
+
+        self.eps_goal = eps_goal
+
+    def f(self, x:np.ndarray, u:np.ndarray):
+        dx = np.zeros_like(x)
+
+        t = -(self.m*self.g*self.l*np.sin(x[0]) + self.m_l*self.g*self.l*np.sin(x[0])/2)
+
+        dx[0] = x[1]
+        dx[1] = (1/self.I) * (t + u[0] - self.b*x[1])
+
+        return dx
 
     # return next state (theta, theta_dot) after applying control u for time dt
-    def step(self, q, u):
-        q = q.flatten()
+    def step(self, x:np.ndarray, u:np.ndarray, dt:float):
         # euler: q_k+1 = q_k + f(q_k, u_k)*dt
-        q_next = q + self.f(q,u)*self.dt
-        q_next[0] = normalize(q_next[0])
-        return q_next.reshape(-1)
+        return x + self.f(x,u)*dt
+
     
-    def calc_input(self, x_start, x_c, tau):
+    def goal_check(self, x: np.ndarray) :#-> tuple[bool, float]:
         
-        iters = int(tau // self.dt)
+        min_dist = np.inf
+        goal = False
 
-        A, B, c = self.linearize_at(x_start, self.u_bar)
+        x_ = x.copy()
+        x_[0] = normalize(x_[0])
+        for goal_state in self.goal_states:
+            dist = np.linalg.norm(x_-goal_state)
+            if dist<min_dist:
+                min_dist = dist
 
-        A*= tau
-        B*= tau
-        c*= tau
-        u = np.linalg.pinv(B)@(x_c.flatten() - x_start.flatten() - (A@x_start).flatten() - c.flatten())
-
-        # due to linearization u might break the limits
-        # so we clamp it
-        # u = min(self.input_limits[1], max(self.input_limits[0], u))
-        if u < self.input_limits[0]:
-            u = self.input_limits[0]
-        elif u > self.input_limits[1]:
-            u = self.input_limits[1]
-        
-        x = x_start
-        controls = []
-        states = [x]
-        for _ in range(iters):
-            
-            x = self.step(x, u).reshape(-1)
-            controls.append(u)
-            states.append(x)
-        
-        return states, controls
+        if min_dist < self.eps_goal:
+            goal = True
+        return goal, min_dist
 
 
-
-    # return q_new
-    def extend_to(self, q_near, q_rand, tau):
-        min_d = np.inf
-        q_next = None
-        u = None
-
-        for control in self.motion_primitives:
-            T = 0
-            q_cand = q_near.copy()
-            while T<tau:
-                q_cand = self.step(q_cand, control)
-                T += self.dt
-            delta = q_rand-q_cand
-            delta[0] = normalize(delta[0])
-
-            # TODO find better metrics
-            d = np.linalg.norm(delta)
-            if d <= min_d:
-                q_next = q_cand
-                u = control
-                min_d = d
-        return q_next.reshape(-1), u
-    
-    def get_reachable_points(self, state, tau):
-
-        states = []
-        controls = []
-
-        for control in self.motion_primitives:
-            T = 0
-            cand = state
-            while T<tau:
-                cand = self.step(cand, control)
-                T += self.dt
-            states.append(cand)
-            controls.append(control)
-
-        return states, controls
-        
-    def linearize_at(self, x, u):
+    def linearize_at(self, x: np.ndarray, u: np.ndarray, dt: float) :#-> tuple[np.ndarray, np.ndarray, np.ndarray]:
         A = np.zeros((self.x_dim, self.x_dim))
         B = np.zeros((self.x_dim, self.u_dim))
-        c = np.zeros((self.x_dim))
+        c = np.zeros(self.x_dim)
 
         A[0,0] = 0
         A[0,1] = 1
         A[1,0] = -(1/self.I)*(self.m*self.g*self.l*np.cos(x[0]) + self.m_l*self.g*self.l*np.cos(x[0])/2)
         A[1,1] = -(1/self.I)*self.b
 
+        A = (np.eye(len(x)) + dt*A)
+
         B[0,0] = 0
         B[1,0] = (1/self.I)
-        c = np.ndarray.flatten(self.f(x,u)) - np.ndarray.flatten(A@x) - np.ndarray.flatten(B*u)
+        B *= dt
+        
+        c = np.ndarray.flatten(self.step(x,u,dt)) - np.ndarray.flatten(A@x) - np.ndarray.flatten(B*u)
 
         return A, B, c
+
+    def sample(self, **kwargs) :#-> np.ndarray:
+        goal_bias = np.random.rand(1)
+        if goal_bias < 0.3:
+            if goal_bias < 0.15: return self.goal_states[0]
+            else:                return self.goal_states[1]
+        else:
+            rnd = (np.random.rand(2) -0.5)*2 # range between -1 and 1
+
+            rnd[0]*= 4*np.pi/3
+            rnd[1]*= 10
+
+            return rnd
     
-    def get_reachable_AH(self, state, tau, convex_hull=True):
-        A, B, c = self.linearize_at(state, self.u_bar)
-        A = A*tau + np.eye(A.shape[0])
-        B *= tau
-        c *= tau
-        x = np.ndarray.flatten(A@state) + np.ndarray.flatten(B*self.u_bar) + c
+    def expand_toward_pinv(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float):#->tuple[np.ndarray, np.ndarray]:
+        # expand using pseudoinverse on linearized system
+        A, B, c = self.linearize_at(x_near, self.u_bar, dt)
 
-        assert(len(x)==len(state))
-        G = np.atleast_2d(B*self.u_diff)
+        u = np.linalg.pinv(B)@(x_rand - A@x_near - c)
 
-        AH = pp.to_AH_polytope(pp.zonotope(G,x))
+        if u < self.input_limits[0][0]: u[0] = self.input_limits[0][0]
+        if u > self.input_limits[0][1]: u[0] = self.input_limits[0][1]
+
+        # the state has to be actually reachable so I step on the real environment with the systems's dt
+        iters = int(dt//self.dt)
+
+        states = np.zeros((iters,self.x_dim))
+        controls = np.zeros((iters, self.u_dim))
+        x = x_near
+        for i in range(iters):
+            x = self.step(x, u, self.dt)
+            states[i] = x
+            controls[i] = u
+        
+        return states, controls
+
+    def expand_toward_samples(self, x_near: np.ndarray, x_rand: np.ndarray, dt: float) :#-> tuple[np.ndarray, np.ndarray]:
+        states, controls = self.get_reachable_sampled(x_near, dt)
+        
+        min_distance = np.inf
+        closest_state = None
+        closest_u = None
+
+        for i in range(len(states)):
+            delta = np.linalg.norm(x_rand-states[i][-1])
+            if delta < min_distance:
+                min_distance = delta
+                closest_state = states[i]
+                closest_u = controls[i]
+
+        return closest_state, closest_u
+
+
+    def get_reachable_sampled(self, x: np.ndarray, dt: float) :#-> tuple[np.ndarray, np.ndarray]:
+
+        iters = int(dt//self.dt)
+        states = []
+        controls = []
+
+        for mp in self.motion_primitives:
+            s = np.zeros((iters,self.x_dim))
+            u = np.zeros((iters,self.u_dim))
+            x_r = x
+            for i in range(iters):
+                x_r = self.step(x_r, u, self.dt)
+                s[i] = x_r
+                u[i] = mp
+
+            states.append(s)
+            controls.append(u)
+        return np.array(states), np.array(controls)
+    
+    def get_reachable_AH(self, x: np.ndarray, dt: float, convex_hull: bool = False):
+        A, B, c = self.linearize_at(x, self.u_bar, dt)
+        x_next = (A@x + B@self.u_bar + c)
+
+        G = (B@self.u_diff).reshape(self.x_dim, self.u_dim)
+        AH = pp.to_AH_polytope(pp.zonotope(G,x_next.reshape(-1,1)))
         if convex_hull:
-            state = state.reshape(-1,1) # shape (n,1)
-            AH = convex_hull_of_point_and_polytope(state, AH)
-
-        return [], AH
-
+            AH = convex_hull_of_point_and_polytope(x.reshape(-1,1), AH)
+        return [(x_next, AH)]
