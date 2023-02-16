@@ -4,8 +4,8 @@ from models.model import Model
 
 
 class RGRRT(Planner):
-    def __init__(self, model: Model, tau, thr=1e-9):
-        super().__init__(model, tau, thr)
+    def __init__(self, model: Model, tau, thr=1e-9, ax=None):
+        super().__init__(model, tau, thr, ax)
 
         # we need an additional tree in which we store sampled reachable points
         self.reachable_tree = StateTree(self.x_dim)

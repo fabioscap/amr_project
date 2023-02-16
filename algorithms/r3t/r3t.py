@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 class R3T(Planner):
     
-    def __init__(self, model: Model, tau, thr=1e-5, convex_hull=True):
-        super().__init__(model, tau, thr)
+    def __init__(self, model: Model, tau, thr=1e-7, convex_hull=True, ax=None):
+        super().__init__(model, tau, thr, ax)
 
         self.convex_hull = convex_hull
 
@@ -16,6 +16,11 @@ class R3T(Planner):
 
         self.polytope_id_to_node = {}
 
+        # debug
+        self.polytope_plot = None
+        self.closest_plot = None
+        
+        
     def add_node(self, states, controls = None, cost=None, parent:Node=None):
         if len(states.shape) == 1:
             # if it's just a single state then reshape it to still be a collection of states
@@ -31,7 +36,7 @@ class R3T(Planner):
         # manage the parent's children
         if parent is not None:
             is_new = parent.add_child(node)
-            assert is_new
+            # assert is_new
         
         self.n_nodes += 1
 
@@ -44,7 +49,12 @@ class R3T(Planner):
         for reachable in reachables:
             kpoint = reachable[0]
             polytope = reachable[1]
+            if self.ax != None:
+                if self.polytope_plot != None:
+                    pass#self.polytope_plot.remove()
+                #self.polytope_plot = utils.visualize_polytope_convexhull(polytope, states[-1,:2], ax=self.ax)
 
+            
             """
             p = utils.visualize_polytope_convexhull(polytope, states[-1], ax=ax)
             plt.draw()
@@ -63,6 +73,11 @@ class R3T(Planner):
         # get the nearest reachable point
         polytope, point, dist = self.polytope_tree.nearest_polytope(x_rand)
 
+        if self.ax != None:
+            if self.closest_plot != None:
+                self.closest_plot.remove()
+            self.closest_plot = self.ax.scatter(point[0],point[1], color="teal")
+
         polytope_id = hash(polytope)
         node_near = self.polytope_id_to_node[polytope_id]
 
@@ -78,7 +93,8 @@ class R3T(Planner):
         closest_state = self.id_to_node[closest_idx].state
 
 
-        if np.linalg.norm(x_next - closest_state) < self.thr:
+        if self.thr != None and np.linalg.norm(x_next - closest_state) < self.thr:
+            print("fanculooooo")
             # there is already a node at this location
             # TODO consider rewiring if the cost is less
             return None, None

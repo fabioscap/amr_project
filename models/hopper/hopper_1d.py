@@ -13,8 +13,8 @@ class Hopper1D(Model):
 
     def __init__(self, m=1, l=1, p=0.1, b=0.9, g=9.8, 
                  initial_state=np.array([2.0,0.0]), 
-                 input_limits =np.array([0,200]).reshape(1,-1),
-                 goal_states  =[np.array([3.0, 0.0])],
+                 input_limits =np.array([0,200]).reshape(1,2),
+                 goal_states  =[np.array([3, 0.0])],
                  eps_goal = 0.1,
                  epsilon = 1e-7, 
                  dt=0.001,
@@ -55,7 +55,7 @@ class Hopper1D(Model):
         return dx
     
     def f_bounce(self, x):
-        x_plus = np.array([x[0]+self.epsilon, -x[1]*self.b])
+        x_plus = np.array([self.l+self.epsilon, -x[1]*self.b])
         return x_plus
 
 
@@ -83,6 +83,7 @@ class Hopper1D(Model):
             # print("flight")
             x_next = x + self.f_flight(x)*dt
         elif mode == Hopper1D.CONTACT:
+            # print("contact")
             x_next = x + self.f_contact(x,u)*dt
         elif mode == Hopper1D.BOUNCE:
             # print("bounce")
@@ -105,11 +106,18 @@ class Hopper1D(Model):
         return goal, min_dist
     
     def sample(self, **kwargs)->np.ndarray:
-        # they use gaussian mixture sampling
-        rnd = np.random.rand(2)
-        rnd[0] = rnd[0]*5+0.5
-        rnd[1] = (rnd[1]-0.5)*2*10
-
+        gaussian_ratio = 0.4
+        rnd = np.zeros(2)
+        rnd[0] = np.random.normal(self.l+0.5*self.p,3*self.p)
+        rnd[1] = (np.random.rand(1)-0.5)*2*10
+        if np.random.rand(1) > gaussian_ratio:
+            rnd = np.random.rand(2)
+            rnd[0] = rnd[0]*5+0.5
+            rnd[1] = (rnd[1]-0.5)*2*10
+            goal_bias = np.random.rand(1)
+            if goal_bias<0.1:
+                return self.goal_states[0]
+            return rnd
         return rnd
 
     def expand_toward(self, x_near:np.ndarray, x_rand:np.ndarray, dt:float)->tuple[np.ndarray, np.ndarray]:
@@ -130,8 +138,8 @@ class Hopper1D(Model):
         elif mode == self.BOUNCE:
             # xdot_k+1 = -b xdot_k
             B = np.array([[0,0]]).reshape(2,1)
-            A = np.array([[1, 0],[0,-self.b]])
-            c = np.array([self.epsilon, 0.0])
+            A = np.array([[0, 0],[0,-self.b]])
+            c = np.array([self.l+self.epsilon, 0.0])
 
         else:
             raise Exception()
@@ -176,7 +184,6 @@ class Hopper1D(Model):
     def get_reachable_AH(self, x: np.ndarray, dt: float, convex_hull: bool = False) -> list[tuple[np.ndarray, pp.AH_polytope]]:
         A, B, c = self.linearize_at(x, self.u_bar, dt)
         x_next = (A@x + B@self.u_bar + c)
-
         G = (B@self.u_diff).reshape(self.x_dim, self.u_dim)
         AH = pp.to_AH_polytope(pp.zonotope(G,x_next.reshape(-1,1)))
         if convex_hull:

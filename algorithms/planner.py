@@ -51,7 +51,7 @@ class Node:
         return f"[{self.state}, {self.u}]"
     
 class Planner:
-    def __init__(self, model: Model, tau, thr=1e-9):
+    def __init__(self, model: Model, tau, thr=1e-9, ax=None):
 
         self.model = model
         self.x_dim = model.x_dim
@@ -65,6 +65,7 @@ class Planner:
         self.n_nodes = 0
 
         self.id_to_node: dict[int, Node] = {}
+        self.ax = ax
                     
     def nodes(self):
         return self.id_to_node.values()
@@ -83,7 +84,7 @@ class Planner:
     def expand(self, x_rand: np.ndarray)-> tuple[np.ndarray, np.ndarray]:
         raise NotImplementedError()
 
-    def plan(self, max_nodes, ax=None):
+    def plan(self, max_nodes):
         # add the first node with the initial state
         initial_state = self.model.initial_state
 
@@ -114,7 +115,7 @@ class Planner:
 
             x_next = node_next.state
 
-            if ax != None: # debug
+            if self.ax != None: # debug
                 x_near = node_near.state
                 try: x_rand_plot.remove()
                 except: pass
@@ -122,17 +123,17 @@ class Planner:
                 except: pass
                 try: x_near_plot.remove()
                 except: pass
-                x_rand_plot = ax.scatter(x_rand[0], x_rand[1], marker="x", color="green")
-                x_near_plot = ax.scatter(x_near[0], x_near[1], color="purple")
-                x_next_plot = ax.scatter(x_next[0], x_next[1], color="cyan")
-                ax.plot([x_near[0], x_next[0]], [x_near[1],x_next[1]], color="blue")
+                x_rand_plot = self.ax.scatter(x_rand[0], x_rand[1], marker="x", color="green")
+                x_near_plot = self.ax.scatter(x_near[0], x_near[1], color="purple")
+                x_next_plot = self.ax.scatter(x_next[0], x_next[1], color="cyan")
+                self.ax.plot([x_near[0], x_next[0]], [x_near[1],x_next[1]], color="blue")
                 
                 plt.draw()
                 plt.pause(0.01)
                 input()
 
-                ax.scatter(x_near[0], x_near[1], color="blue")
-                ax.scatter(x_next[0], x_next[1], color="blue")
+                self.ax.scatter(x_near[0], x_near[1], color="blue")
+                self.ax.scatter(x_next[0], x_next[1], color="blue")
                
             for i in range(node_next.states.shape[0]):
                 state = node_next.states[i,:]

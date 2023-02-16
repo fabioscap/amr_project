@@ -49,14 +49,17 @@ class Pendulum(Model):
     def step(self, x:np.ndarray, u:np.ndarray, dt:float):
         # euler: q_k+1 = q_k + f(q_k, u_k)*dt
         return x + self.f(x,u)*dt
+
     
     def goal_check(self, x: np.ndarray) -> tuple[bool, float]:
         
         min_dist = np.inf
         goal = False
 
+        x_ = x.copy()
+        x_[0] = normalize(x_[0])
         for goal_state in self.goal_states:
-            dist = np.linalg.norm(x-goal_state)
+            dist = np.linalg.norm(x_-goal_state)
             if dist<min_dist:
                 min_dist = dist
 
@@ -87,13 +90,13 @@ class Pendulum(Model):
 
     def sample(self, **kwargs) -> np.ndarray:
         goal_bias = np.random.rand(1)
-        if goal_bias < 0:
+        if goal_bias < 0.3:
             if goal_bias < 0.15: return self.goal_states[0]
             else:                return self.goal_states[1]
         else:
             rnd = (np.random.rand(2) -0.5)*2 # range between -1 and 1
 
-            rnd[0]*= 3*np.pi/2
+            rnd[0]*= 4*np.pi/3
             rnd[1]*= 10
 
             return rnd
@@ -114,6 +117,12 @@ class Pendulum(Model):
         controls = u
         x = x_near
         for i in range(iters):
+            A, B, c = self.linearize_at(x, self.u_bar, self.dt)
+
+            u = np.linalg.pinv(B)@(x_rand - A@x - c)
+
+            if u < self.input_limits[0][0]: u[0] = self.input_limits[0][0]
+            if u > self.input_limits[0][1]: u[0] = self.input_limits[0][1]
 
             x = self.step(x, u, self.dt)
             states[i] = x

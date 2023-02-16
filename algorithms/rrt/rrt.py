@@ -5,8 +5,8 @@ import time
 
 class RRT(Planner):
     
-    def __init__(self, model: Model, tau, thr=1e-9):
-        super().__init__(model, tau, thr)
+    def __init__(self, model: Model, tau, thr=1e-9, ax=None):
+        super().__init__(model, tau, thr, ax)
 
     def add_node(self, states, controls = None, cost=None, parent:Node=None):
         if len(states.shape) == 1:

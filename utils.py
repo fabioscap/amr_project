@@ -7,7 +7,7 @@ from scipy import sparse
 import pypolycontain as pp
 import qpsolvers
 from matplotlib import collections as mc
-
+import cv2
 
 def normalize(angle):
     return np.arctan2(np.sin(angle), np.cos(angle))
@@ -27,7 +27,7 @@ def plot_hopper_2d(root_node, plt):
         plot_hopper_2d(child, plt)
 
 
-def plot(nodes, ax,int_color='pink', last_color="red", size=5, lw=1, th=100, plot_all=True, zorder=0):
+def plot(nodes, ax,int_color='pink', last_color="red", size=5, lw=1, th=100, plot_all=True, zorder=0, convex_hull=False, polytopes=True):
     # speed up plots by plotting all at once
     from matplotlib import collections as mc
 
@@ -39,8 +39,8 @@ def plot(nodes, ax,int_color='pink', last_color="red", size=5, lw=1, th=100, plo
     scatters_int = []
 
     for node in nodes:
-        if hasattr(node, "polytopes"):
-            visualize_polytope_convexhull(node.polytopes[0], node.state, ax=ax)
+        if polytopes and hasattr(node, "polytopes"):
+            visualize_polytope_convexhull(node.polytopes[0], node.state, ax=ax, convex_hull=convex_hull)
         # always plot the last node
         scatters.append(node.state)
 
@@ -49,14 +49,14 @@ def plot(nodes, ax,int_color='pink', last_color="red", size=5, lw=1, th=100, plo
         if node.parent is not None:
             x_from = node.parent.state
             x_to   = node.states[0] if plot_all else node.state
-            lines.append([x_from,x_to])
+            lines.append([x_from[:2],x_to[:2]])
 
         # if plot_all, also plot intermediate states and lines in between them
         n_int = len(node.states)
         if plot_all:
             for i in range(n_int-1): # I already plotted the last state in any case
-                scatters_int.append(node.states[i])
-                lines_int.append([node.states[i], node.states[i+1]])
+                scatters_int.append(node.states[i,:2])
+                lines_int.append([node.states[i,:2], node.states[i+1,:2]])
         
     scatters = np.array(scatters)
     lines = np.array(lines)
@@ -162,15 +162,16 @@ class AABB: # axis aligned bounding box
         return plot
         
 
-def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.4,N=20,epsilon=0.001,ax=None):
+def visualize_polytope_convexhull(polytope,state,color='blue',alpha=0.4,N=20,epsilon=0.001,ax=None, convex_hull=False):
     v,w=AH_polytope_vertices(polytope,N=N,epsilon=epsilon)
     try:
         v=v[ConvexHull(v).vertices,:]
     except:
         v=v[ConvexHull(w).vertices,:]
     # x = v[0:2,:]
-    x = np.append(v,[state],axis=0)
-    p=Polygon(x,edgecolor = color,facecolor = color,alpha = alpha,lw=1)
+    if convex_hull:
+        v = np.append(v,[state],axis=0)
+    p=Polygon(v,edgecolor = color,facecolor = color,alpha = alpha,lw=1)
     ax.add_patch(p)
     return p
 
@@ -198,3 +199,100 @@ def convex_hull_of_point_and_polytope(x, Q):
     new_h[Q.P.h.shape[0],0],new_h[Q.P.h.shape[0]+1,0]=1,0
     new_P=pp.H_polytope(new_H,new_h)
     return pp.AH_polytope(t=new_t,T=new_T,P=new_P)
+
+def edit_video(path,N):
+
+    img_array = []
+
+    for n in range(N):
+        filename = path + '/' + str(n)+ '_image.png'
+        img = cv2.imread(filename)
+        
+        height, width, layers = img.shape
+        size = (width,height)
+        img_array.append(img)
+
+    out = cv2.VideoWriter(path+'video.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, size)
+    for i in range(len(img_array)):
+        out.write(img_array[i])
+    out.release()
+    return out
+
+
+def plot_plan(plan,seed,save_video=False):
+    import os
+    import random
+    import matplotlib.pyplot as plt
+    dir = os.getcwd() 
+ 
+    dir += '/trajectories/'+str(seed)
+
+    if os.path.exists(dir):
+        name_rnd = '_v'+str(random.randint(0, 100))
+        dir += name_rnd
+
+    dir +='/'
+    os.mkdir(dir)
+    i = 0
+    plt.figure()
+    for state in plan:
+        X = state[:5]
+        path = dir +str(i)+ '_image'+'.png'
+        if i % 1 ==0:
+            plt.gca().remove()
+            # plot
+            hopper_plot(X,plt, xlim=[-2,17], ylim=[0,5])
+            plt.savefig(path)
+        i+= 1
+    if save_video:
+        edit_video(path=dir,N=i)
+        plt.close()
+    plt.savefig(dir+"plot.png")
+
+
+
+import matplotlib.patches as patches
+from matplotlib.collections import PatchCollection
+
+def hopper_plot(X,plt,scaling_factor=0.7, alpha=0.5, xlim=[0,5], ylim=[0,5]):
+    x,y,theta,phi,r=X[0:5]
+    # theta and phi are clockwise positive
+    theta *= -1
+    phi *= -1
+    ax = plt.gca()
+    w_1=0.1*scaling_factor
+    w_2=0.1*scaling_factor
+    h=0.2*scaling_factor
+    L=3*scaling_factor
+    a=1*scaling_factor
+    alpha = alpha
+    R=np.array([[np.cos(theta),-np.sin(theta)],[np.sin(theta),np.cos(theta)]])
+    # Good now plot
+    ax.set_xlabel("x [m]",fontsize=14)
+    ax.set_ylabel("y [m]",fontsize=14)
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    ax.set_aspect('equal')
+    # leg
+    corner=np.array([x,y])
+    down_left=np.array([x,y])+np.dot(R,[-w_1,h])
+    down_right=np.array([x,y])+np.dot(R,[w_1,h])
+    up_left=np.array([x,y])+np.dot(R,[-w_1,h])+np.dot(R,[-w_1/2,L])
+    up_right=np.array([x,y])+np.dot(R,[w_1,h])+np.dot(R,[w_1/2,L])
+    leg=[patches.Polygon(np.array([[corner[0],down_right[0],up_right[0],up_left[0],down_left[0]],\
+                                   [corner[1],down_right[1],up_right[1],up_left[1],down_left[1]]]).reshape(2,5).T, True)]
+    ax.add_collection(PatchCollection(leg,color=(0.8,0.3,0.4),alpha=alpha,edgecolor=None))
+    # Body
+    center=np.array([x,y])+np.dot(R,[0,r*scaling_factor])
+    R=np.array([[np.cos(phi),-np.sin(phi)],[np.sin(phi),np.cos(phi)]])
+    up_right,up_left,down_left,down_right=center+np.dot(R,[a,w_2]),\
+                                            center+np.dot(R,[-a,w_2]),\
+                                            center+np.dot(R,[-a,-w_2]),\
+                                            center+np.dot(R,[a,-w_2])
+    body=[patches.Polygon(np.array([[up_right[0],up_left[0],down_left[0],down_right[0]],\
+                                    [up_right[1],up_left[1],down_left[1],down_right[1]]]).reshape(2,4).T, True)]
+    ax.add_collection(PatchCollection(body,color=(0.2,0.2,0.8),alpha=alpha,edgecolor=None))
+    ax.grid(color=(0,0,0), linestyle='--', linewidth=0.5)
+    return plt
