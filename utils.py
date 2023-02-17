@@ -2,11 +2,9 @@ import numpy as np
 from matplotlib.patches import Polygon,Rectangle
 from scipy.spatial import ConvexHull
 from lib.operations import AH_polytope_vertices 
-
-from scipy import sparse
+import os
 import pypolycontain as pp
 import qpsolvers
-from matplotlib import collections as mc
 import cv2
 import matplotlib.pyplot as plt
 
@@ -200,39 +198,48 @@ def convex_hull_of_point_and_polytope(x, Q):
     new_P=pp.H_polytope(new_H,new_h)
     return pp.AH_polytope(t=new_t,T=new_T,P=new_P)
 
-def edit_video(path,N):
+def edit_video(path,N,dt, speed=1.0):
 
     img_array = []
-
+    img_path = path + "/imgs/"
     for n in range(N):
-        filename = path + '/' + str(n)+ '_image.png'
+        filename = img_path + str(n)+ '.png'
         img = cv2.imread(filename)
         
         height, width, layers = img.shape
         size = (width,height)
         img_array.append(img)
 
-    out = cv2.VideoWriter(path+'video.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, size)
+    fps = int(1/dt)*speed
+    out = cv2.VideoWriter(path+'/video.avi',cv2.VideoWriter_fourcc(*'DIVX'), fps, size)
     for i in range(len(img_array)):
         out.write(img_array[i])
     out.release()
     return out
 
-def plot_plan(states, ax, save_video=False, goal_x=10):
+def plot_plan(states, dt, video=False, goal_x=10, dir="./"):
+
+    os.mkdir(dir+"/imgs")
+    i = 0
+
+    # video
+    fig, ax = plt.subplots()
+    ax.axvline(x = goal_x, color = 'g', label = 'goal')
+
     for state in states:
         X = state[:5]
-        path = dir +str(i)+ '_image'+'.png'
+        img_name = dir + "/imgs/" + str(i) +'.png'
         if i % 1 ==0:
-            ax.remove()
             # plot
-            ax.axvline(x = goal_x, color = 'g', label = 'goal')
-            hopper_plot(X,ax, xlim=[-2,17], ylim=[0,5])
-            plt.savefig(path)
+            hopper = hopper_plot(X,ax, xlim=[-2,17], ylim=[0,5], alpha=1.0)
+            fig.savefig(img_name)
+            [x.remove() for x in hopper]
+
         i+= 1
-    if save_video:
-        edit_video(path=dir,N=i)
+
+    if video:
+        edit_video(path=dir,N=i,dt=dt)
         plt.close()
-    plt.savefig(dir+"plot.png")
 
 
 
@@ -267,7 +274,7 @@ def hopper_plot(X,ax,scaling_factor=0.7, alpha=0.5, xlim=[0,5], ylim=[0,5]):
     up_right=np.array([x,y])+np.dot(R,[w_1,h])+np.dot(R,[w_1/2,L])
     leg=[patches.Polygon(np.array([[corner[0],down_right[0],up_right[0],up_left[0],down_left[0]],\
                                    [corner[1],down_right[1],up_right[1],up_left[1],down_left[1]]]).reshape(2,5).T, True)]
-    ax.add_collection(PatchCollection(leg,color=(0.8,0.3,0.4),alpha=alpha,edgecolor=None))
+    leg_ = ax.add_collection(PatchCollection(leg,color=(0.8,0.3,0.4),alpha=alpha,edgecolor=None))
     # Body
     center=np.array([x,y])+np.dot(R,[0,r*scaling_factor])
     R=np.array([[np.cos(phi),-np.sin(phi)],[np.sin(phi),np.cos(phi)]])
@@ -277,6 +284,6 @@ def hopper_plot(X,ax,scaling_factor=0.7, alpha=0.5, xlim=[0,5], ylim=[0,5]):
                                             center+np.dot(R,[a,-w_2])
     body=[patches.Polygon(np.array([[up_right[0],up_left[0],down_left[0],down_right[0]],\
                                     [up_right[1],up_left[1],down_left[1],down_right[1]]]).reshape(2,4).T, True)]
-    ax.add_collection(PatchCollection(body,color=(0.2,0.2,0.8),alpha=alpha,edgecolor=None))
+    body_ = ax.add_collection(PatchCollection(body,color=(0.2,0.2,0.8),alpha=alpha,edgecolor=None))
     ax.grid(color=(0,0,0), linestyle='--', linewidth=0.5)
-    return ax
+    return leg_, body_

@@ -157,6 +157,9 @@ def plot_hopper2d(d):
     plt.savefig(dir+folder_name+"/input.png")
     plt.close()
 
+    # render video
+    utils.plot_plan(states, dt=d['dt'] ,video=True, dir=dir+folder_name)
+
     return
 
 def plot_hopper1d(d):
