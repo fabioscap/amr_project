@@ -13,7 +13,7 @@ class Hopper1D(Model):
 
     def __init__(self, m=1, l=1, p=0.1, b=0.9, g=9.8, 
                  initial_state=np.array([2.0,0.0]), 
-                 input_limits =np.array([0,200]).reshape(1,2),
+                 input_limits =np.array([0,80]).reshape(1,2),
                  goal_states  =[np.array([3, 0.0])],
                  eps_goal = 0.1,
                  epsilon = 1e-7, 
@@ -84,7 +84,7 @@ class Hopper1D(Model):
             x_next = x + self.f_flight(x)*dt
         elif mode == Hopper1D.CONTACT:
             # print("contact")
-            x_next = x + self.f_contact(x,u[0])*dt
+            x_next = x + self.f_contact(x,u)*dt
         elif mode == Hopper1D.BOUNCE:
             # print("bounce")
             x_next = self.f_bounce(x)
@@ -157,7 +157,7 @@ class Hopper1D(Model):
             u = np.zeros((iters,self.u_dim))
             x_r = x
             for i in range(iters):
-                x_r = self.step(x_r, u, self.dt)
+                x_r = self.step(x_r, mp, self.dt)
                 s[i] = x_r
                 u[i] = mp
 
@@ -172,7 +172,7 @@ class Hopper1D(Model):
 
             x_ = x.copy()
             while self.get_mode(x_) != self.CONTACT:
-                x_ = self.step(x_,...,self.dt)
+                x_ = self.step(x_,None,self.dt)
                 no_inputs.append(x_)
 
             return np.array(no_inputs).reshape(-1,self.x_dim), np.zeros((len(no_inputs),self.u_dim))
