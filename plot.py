@@ -159,6 +159,7 @@ def plot_hopper2d(d):
 
     # render video
     utils.plot_plan(states, dt=d['dt'] ,video=True, dir=dir+folder_name)
+    utils.plot_plan(states, dt=d['dt'] ,video=False, dir=dir+folder_name)
 
     return
 

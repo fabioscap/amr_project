@@ -219,27 +219,37 @@ def edit_video(path,N,dt, speed=1.0):
 
 def plot_plan(states, dt, video=False, goal_x=10, dir="./"):
 
-    os.mkdir(dir+"/imgs")
-    i = 0
+    if video:
+        os.mkdir(dir+"/imgs")
+    
 
-    # video
+    alpha = 1.0 if video else 0.5
+    step  = 1 if video else 16
+
     fig, ax = plt.subplots()
     ax.axvline(x = goal_x, color = 'g', label = 'goal')
 
+    i = 0
     for state in states:
         X = state[:5]
         img_name = dir + "/imgs/" + str(i) +'.png'
-        if i % 1 ==0:
+        if i % step ==0:
             # plot
-            hopper = hopper_plot(X,ax, xlim=[-2,17], ylim=[0,5], alpha=1.0)
-            fig.savefig(img_name)
-            [x.remove() for x in hopper]
+            hopper = hopper_plot(X,ax, xlim=[-2,17], ylim=[0,5], alpha=alpha)
+            if video:
+                fig.savefig(img_name)
+                [x.remove() for x in hopper]
 
         i+= 1
 
     if video:
         edit_video(path=dir,N=i,dt=dt)
         plt.close()
+    else:
+        fig.savefig(dir+"/strobo.png")
+
+    plt.close()
+    return
 
 
 
