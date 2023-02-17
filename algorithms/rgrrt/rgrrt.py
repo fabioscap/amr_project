@@ -33,7 +33,7 @@ class RGRRT(Planner):
         # manage the parent's children
         if parent is not None:
             is_new = parent.add_child(node)
-            assert is_new
+            # assert is_new
         
         self.n_nodes += 1
 

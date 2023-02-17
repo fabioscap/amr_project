@@ -176,13 +176,13 @@ def plot_hopper1d(d):
 
     fig, ax = plt.subplots()
 
-    planner = d["planner"]
-    plan    = d["plan"]
+    nodes = d["nodes"]
+    plan = d["plan"]
 
     ax.set_title( f"{d['model_name']} {d['planner_name']} nodes: {len(d['nodes'])}")
     ax.set_xlabel("x [m]")
     ax.set_ylabel("xdot [m/s]")
-    utils.plot(planner.nodes(), ax, plot_all=True, polytopes=False)
+    utils.plot(nodes, ax, plot_all=True, polytopes=False)
     if plan is not None: utils.plot (plan, ax, plot_all=True, last_color="lime", int_color="olive", polytopes=False, lw=3)
     plt.savefig(dir+folder_name+"/nodes.png")
     plt.close()

@@ -75,7 +75,7 @@ class Planner:
         while node.parent is not None:
             nodes = [node.parent] + nodes
             node = node.parent
-        
+            assert node.states.shape[0] == node.controls.shape[0]
         return nodes
     
     def add_node(self, states, controls = None, cost=None, parent:Node=None):#->Node:
@@ -142,6 +142,7 @@ class Planner:
                     self.min_distance = distance
                 if goal:
                     node_next.states = node_next.states[:i+1,:]
+                    node_next.controls = node_next.controls[:i+1,:]
                     plan = self.get_plan(node_next)
                     print()
                     return True, plan

@@ -226,6 +226,6 @@ def test(model_name, planner_name, tau, seed=None, max_nodes=1000):
     return dir+"/"+filename
 
 # test("hopper1d", "R3T", 0.04)
-pickle_name = test("hopper2d", "R3T", 0.1, max_nodes=3000)
+pickle_name = test("hopper1d", "RGRRT", 0.1, max_nodes=3000)
 
 plot.plot(pickle_name)

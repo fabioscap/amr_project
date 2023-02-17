@@ -84,7 +84,7 @@ class Hopper1D(Model):
             x_next = x + self.f_flight(x)*dt
         elif mode == Hopper1D.CONTACT:
             # print("contact")
-            x_next = x + self.f_contact(x,u)*dt
+            x_next = x + self.f_contact(x,u[0])*dt
         elif mode == Hopper1D.BOUNCE:
             # print("bounce")
             x_next = self.f_bounce(x)
@@ -152,17 +152,17 @@ class Hopper1D(Model):
         states = []
         controls = []
 
-        for u in self.motion_primitives:
-            s = []
-
+        for mp in self.motion_primitives:
+            s = np.zeros((iters,self.x_dim))
+            u = np.zeros((iters,self.u_dim))
             x_r = x
-            for _ in range(iters):
+            for i in range(iters):
                 x_r = self.step(x_r, u, self.dt)
-                s.append(x_r)
+                s[i] = x_r
+                u[i] = mp
 
-            states.append(np.array(s))
+            states.append(s)
             controls.append(u)
-
         return states, controls
 
     def ffw(self, x: np.ndarray) :#-> list[np.ndarray]:
