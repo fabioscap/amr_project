@@ -27,13 +27,14 @@ class RGRRT(Planner):
             controls = controls.reshape(1,-1)
 
         if cost is None:
-            cost = np.sum( np.linalg.norm(controls) ) # sum the cost of every control
+            cost = np.sum( np.linalg.norm(controls, axis=1) ) # sum the cost of every control
         node = Node(states, controls, parent, cost, self.model.dt)
 
         # manage the parent's children
         if parent is not None:
             is_new = parent.add_child(node)
-            # assert is_new
+            if not is_new:
+                return None
         
         self.n_nodes += 1
 

@@ -33,14 +33,15 @@ class R3T(Planner):
             controls = controls.reshape(1,-1)
 
         if cost is None:
-            cost = np.sum( np.linalg.norm(controls) ) # sum the cost of every control
+            cost = np.sum( np.linalg.norm(controls, axis=1) ) # sum the cost of every control
         node = Node(states, controls, parent, cost, self.model.dt)
 
         # manage the parent's children
         if parent is not None:
             is_new = parent.add_child(node)
             # assert is_new
-        
+            if not is_new:
+                return None
         self.n_nodes += 1
 
         state_id = self.state_tree.insert(states[-1])
@@ -104,10 +105,23 @@ class R3T(Planner):
             # there is already a node at this location
             # TODO consider rewiring if the cost is less
             return None, None
-        
-        cost = np.sum( np.linalg.norm(controls) )
+        cost = np.sum( np.linalg.norm(controls, axis=1) )
 
         # add node to tree
         node_next = self.add_node(states, controls, cost, node_near)
 
         return node_next, node_near
+    
+    """
+    def goal_check(self, node: Node):
+        state = node.states[-1]
+
+        goal, states, controls, min_distance = self.model.expand_toward_samples(state, self.model.dt, n_samples=18)
+        if min_distance < self.min_distance:
+            self.min_distance = min_distance
+        if goal:
+            goal_node = Node(states, controls, node)
+            plan = self.get_plan(goal_node)
+            return True, plan
+        return False, None
+    """

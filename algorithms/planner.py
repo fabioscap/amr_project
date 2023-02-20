@@ -103,7 +103,7 @@ class Planner:
         while self.n_nodes < max_nodes:
             t = time.time()
             if it%1 == 0:
-                print(f"n_nodes: {self.n_nodes}, d: {self.min_distance}, d: {dropped}, t: {t-start} sec", end='\r')
+                print(f"n_nodes: {self.n_nodes}, dist: {self.min_distance}, dropped: {dropped}, t: {t-start} sec", end='\r')
             it+=1
             x_rand = self.model.sample()
 
@@ -135,19 +135,24 @@ class Planner:
                 self.ax.scatter(x_near[0], x_near[1], color="blue")
                 self.ax.scatter(x_next[0], x_next[1], color="blue")
                
-            for i in range(node_next.states.shape[0]):
-                state = node_next.states[i,:]
-                goal, distance = self.model.goal_check(state)
-                if distance < self.min_distance:
-                    self.min_distance = distance
-                if goal:
-                    node_next.states = node_next.states[:i+1,:]
-                    node_next.controls = node_next.controls[:i+1,:]
-                    plan = self.get_plan(node_next)
-                    print()
-                    return True, plan
+            goal, plan = self.goal_check(node_next)
+            if goal:
+                return goal,plan
 
         print()
+        return False, None
+
+    def goal_check(self, node):
+        for i in range(node.states.shape[0]):
+            state = node.states[i,:]
+            goal, distance = self.model.goal_check(state)
+            if distance < self.min_distance:
+                self.min_distance = distance
+            if goal:
+                node.states = node.states[:i+1,:]
+                node.controls = node.controls[:i+1,:]
+                plan = self.get_plan(node)
+                return True, plan
         return False, None
         
 
