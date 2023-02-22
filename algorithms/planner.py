@@ -29,9 +29,9 @@ class Node:
 
     def cumulative_cost(self):
         cost = self.cost
-        while self.parent is not None:
-            cost += self.parent.cost
-            return cost + self.parent.cumulative_cost()
+        if self.parent is None:
+            return 0
+        return cost + self.parent.cumulative_cost()
         
     def add_child(self, child):
         if child in self.children:
@@ -47,7 +47,7 @@ class Node:
         return self.__hash__() == __o.__hash__()
 
     def __repr__(self) :#-> str:
-        return f"[{self.state}, {self.u}]"
+        return f"[{self.state}, {self.controls[-1]}]"
     
 class Planner:
     def __init__(self, model: Model, tau, thr=1e-9, ax=None):
@@ -165,7 +165,8 @@ class StateTree:
         self.state_tree_p = index.Property()
         self.state_tree_p.dimension = dim
         
-        self.state_idx = index.Index(properties=self.state_tree_p)
+        self.state_idx = index.Index(properties=self.state_tree_p,
+                                     interleaved=True)
 
     def insert(self, state):
         state_id = self._id(state)
@@ -177,6 +178,13 @@ class StateTree:
         nearest_id = list(self.state_idx.nearest(state, num_results=1))[0]
 
         return nearest_id
+    
+    def ids_in_box(self, box:utils.AABB):
+        lu = np.concatenate((box.l, box.u))
+
+        intersections = set(self.state_idx.intersection(lu))
+
+        return intersections
 
     def _id(self,x:np.ndarray):
         return hash(str(x))

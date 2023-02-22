@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 class R3T(Planner):
     
-    def __init__(self, model: Model, tau, thr=1e-7, convex_hull=True, ax=None):
+    def __init__(self, model: Model, tau, thr=1e-7, convex_hull=True, ax=None, rewire=False):
         super().__init__(model, tau, thr, ax)
 
         self.convex_hull = convex_hull
@@ -15,6 +15,8 @@ class R3T(Planner):
         self.polytope_tree = PolytopeTree(model.x_dim)
 
         self.polytope_id_to_node = {}
+
+        self.do_rewire = rewire
 
         # debug
         self.polytope_plot = None
@@ -110,8 +112,48 @@ class R3T(Planner):
         # add node to tree
         node_next = self.add_node(states, controls, cost, node_near)
 
+        if self.do_rewire:
+            self.rewire(node_next)
+
         return node_next, node_near
     
+    def rewire(self, node: Node):
+        # rewire 2
+        for polytope in node.polytopes:
+            # use the bounding box as an approximation for the polytope
+            bbox = utils.AABB.from_AH(polytope)
+            
+            cand_ids = self.state_tree.ids_in_box(bbox)
+
+            for cand_id in cand_ids:
+                cand_node = self.id_to_node[cand_id]
+                cand_state = cand_node.state
+
+                deltas = utils.distance_point_polytope(cand_state, polytope)
+                if np.linalg.norm(deltas) > 1e-9:
+                    continue # the state is not actually contained
+
+                states, controls = self.model.expand_toward_pinv(node.state, cand_state, self.tau)
+
+                difference = states[-1]-cand_state
+                if np.linalg.norm(difference) > 1e-2 and False:
+                    print("--")
+                    continue # did not get to cand_state
+
+
+                # cost to go from node.state to cand_state
+                cost = np.sum( np.linalg.norm( controls, axis=1) )
+
+                if cand_node.cumulative_cost() > cost + node.cumulative_cost():
+                    # then rewire
+                    
+                    # to have a consistent trajectory
+                    #cand_node.states = states
+                    #cand_node.controls = controls
+                    cand_node.parent.children.remove(cand_node)
+                    cand_node.parent = node
+                    node.add_child(cand_node)
+
     """
     def goal_check(self, node: Node):
         state = node.states[-1]
