@@ -17,7 +17,7 @@ class Hopper1D(Model):
                  goal_states  =[np.array([3, 0.0])],
                  eps_goal = 0.1,
                  epsilon = 1e-7, 
-                 dt=0.001,
+                 dt=0.01,
                  fast_forward=True):
         super().__init__(initial_state, input_limits, dt)
 
