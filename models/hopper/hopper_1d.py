@@ -151,15 +151,20 @@ class Hopper1D(Model):
         iters = int(dt//self.dt)
         states = []
         controls = []
-
         for mp in self.motion_primitives:
             s = np.zeros((iters,self.x_dim))
             u = np.zeros((iters,self.u_dim))
-            x_r = x
+            x_r = x.copy()
             for i in range(iters):
-                x_r = self.step(x_r, mp, self.dt)
+                m = self.get_mode(x_r)
+                if m == self.FLIGHT:
+                    inp = np.array([0.0]).reshape(1,-1)
+                else:
+                    inp = mp
+                x_r = self.step(x_r, inp, self.dt)
+                
                 s[i] = x_r
-                u[i] = mp
+                u[i] = inp
 
             states.append(s)
             controls.append(u)
